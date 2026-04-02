@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Southern Sentinel | Live Australian SSA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for 3D Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Satellite.js for parsing TLEs and calculating orbital physics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --space-bg: #03060a;
+            --accent-blue: #00e5ff;
+            --accent-red: #ff3333;
+            --radar-green: #00ff88;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: var(--space-bg);
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        
+        h1, h2 { font-family: 'Playfair Display', serif; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Fullscreen Loading Overlay */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background-color: var(--space-bg);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1s ease;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 229, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--accent-blue);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* WebGL Background */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Scrollytelling Layer */
+        #story-layer {
+            position: relative;
+            z-index: 10;
+        }
+        .step {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 2rem 10vw;
+            pointer-events: none;
+        }
+        .content-box {
+            max-width: 480px;
+            background: rgba(10, 15, 25, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.2);
+            border-left: 4px solid var(--accent-blue);
+            padding: 2.5rem;
+            pointer-events: auto;
+            opacity: 0.2;
+            transform: translateY(30px);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .step.active .content-box {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Dashboard UI Layer */
+        #dashboard-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 20;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 1s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 1.5rem;
+        }
+        .dashboard-active #dashboard-layer {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .dashboard-active #canvas-container {
+            pointer-events: auto;
+        }
+        .dashboard-active #story-layer {
+            display: none;
+        }
+        .dash-panel {
+            background: rgba(5, 8, 15, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 229, 255, 0.3);
+            padding: 1rem;
+            pointer-events: auto;
+        }
+
+        /* Progress Bar */
+        #progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 3px;
+            background: var(--accent-blue);
+            width: 0%;
+            z-index: 100;
+        }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--space-bg); }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        
+        .blinking-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--radar-green);
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+    <!-- Loading Screen for Live Data -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <h2 class="mono text-xl text-cyan-400 mb-2">INITIALIZING SATELLITE ENGINE</h2>
+        <p id="loading-status" class="mono text-xs text-gray-500 uppercase tracking-widest">Connecting to CelesTrak for live orbital data...</p>
+    </div>
+
+    <div id="progress-bar"></div>
+    <div id="canvas-container"></div>
+
+    <!-- NARRATIVE LAYER -->
+    <div id="story-layer">
+        <div class="step active" id="step-0">
+            <div class="content-box">
+                <p class="text-cyan-400 mono text-xs mb-3 tracking-widest uppercase">Live Visual Investigation</p>
+                <h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight">The Southern Sentinel</h1>
+                <p class="text-gray-300 text-lg leading-relaxed mb-6">
+                    What you are seeing is not a simulation. This engine is rendering real-time orbital data for thousands of active satellites and debris fragments currently circling Earth.
+                </p>
+                <div class="mono text-xs text-gray-500 animate-bounce mt-8">SCROLL TO EXPLORE &darr;</div>
+            </div>
+        </div>
+
+        <div class="step" id="step-1">
+            <div class="content-box ml-auto" style="margin-left: auto; border-left: none; border-right: 4px solid var(--accent-red);">
+                <h2 class="text-3xl mb-4 text-red-400">The Data Void</h2>
+                <p class="text-gray-300 leading-relaxed mb-4">
+                    Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere.
+                </p>
+                <p class="text-gray-300 leading-relaxed">
+                    This left a massive blind spot. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their exact trajectories.
+                </p>
+            </div>
+        </div>
+
+        <div class="step" id="step-2">
+            <div class="content-box">
+                <h2 class="text-3xl mb-4">Australia's Advantage</h2>
+                <p class="text-gray-300 leading-relaxed mb-4">
+                    To prevent the catastrophic Kessler Syndrome, continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.
+                </p>
+            </div>
+        </div>
+
+        <div class="step" id="step-3">
+            <div class="content-box">
+                <h2 class="text-3xl mb-4 text-green-400 flex items-center gap-3">
+                    <span class="blinking-dot"></span> Radar Active
+                </h2>
+                <p class="text-gray-300 leading-relaxed mb-4">
+                    Commercial SSA networks now blanket the southern skies. 
+                    <br><br>
+                    <span class="text-xs mono text-cyan-400">Notice the objects turning red as they pass through the southern hemisphere—representing active tracking by southern radars.</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="step" id="step-4">
+            <div class="content-box text-center" style="margin: 0 auto; border-left: none; border-top: 4px solid var(--accent-blue);">
+                <h2 class="text-3xl mb-4">Explore Live Telemetry</h2>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    Transition to the operational dashboard to view the current orbital environment above Australia based on live CelesTrak data.
+                </p>
+                <button id="enter-dash-btn" class="mono bg-cyan-900/50 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 transition-colors uppercase tracking-widest text-sm">
+                    Access Live Dashboard
+                </button>
+            </div>
+        </div>
+        <div style="height: 20vh;"></div> 
+    </div>
+
+    <!-- DASHBOARD LAYER -->
+    <div id="dashboard-layer">
+        <header class="dash-panel flex justify-between items-center rounded-md">
+            <div>
+                <h1 class="mono text-xl font-bold text-cyan-400 tracking-tighter">AUS-SSA <span class="text-xs text-gray-500 font-normal">OPERATIONAL VIEW</span></h1>
+            </div>
+            <div class="text-right mono">
+                <div id="clock" class="text-lg">00:00:00 UTC</div>
+                <div class="text-[10px] text-gray-500">LIVE PROPAGATION ENGINE (SPEED: 60x)</div>
+            </div>
+        </header>
+
+        <div class="flex justify-between items-end flex-grow pb-4 mt-4 gap-4">
+            <aside class="dash-panel w-72 rounded-md h-full flex flex-col justify-between max-h-[60vh]">
+                <div>
+                    <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3">SYSTEM STATUS</h3>
+                    <div class="flex items-center gap-2 mb-2 mono text-xs">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div> WA RADAR: <span class="text-green-400">ONLINE</span>
+                    </div>
+                    <div class="flex items-center gap-2 mb-4 mono text-xs">
+                        <div class="w-2 h-2 bg-green-500 rounded-full"></div> NT RADAR: <span class="text-green-400">ONLINE</span>
+                    </div>
+
+                    <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3 mt-6">LIVE METRICS</h3>
+                    <div class="grid grid-cols-2 gap-2 mono text-xs">
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
+                            <div class="text-gray-500 text-[9px]">ACTIVE SATS</div>
+                            <div id="metric-active" class="text-cyan-400 text-lg">0</div>
+                        </div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
+                            <div class="text-gray-500 text-[9px]">DEBRIS (SAMPLE)</div>
+                            <div id="metric-debris" class="text-gray-400 text-lg">0</div>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <button id="exit-dash-btn" class="mono w-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 px-4 py-2 text-xs transition-colors">
+                        &larr; RETURN TO BRIEFING
+                    </button>
+                </div>
+            </aside>
+
+            <aside class="dash-panel w-80 rounded-md h-full max-h-[60vh] flex flex-col">
+                <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3">SOUTHERN HEMISPHERE FEED</h3>
+                <div id="data-feed" class="flex-grow overflow-hidden mono text-[10px] space-y-2 text-gray-400 flex flex-col justify-end">
+                    <!-- Events will populate here -->
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. GLOBALS & CONFIG ---
+        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, earth;
+        let activePoints, debrisPoints;
+        let auRadars = [];
+        
+        let activeSatellites = [];
+        let debrisSatellites = [];
+        let parsedSatNames = []; 
+        
+        let simulatedTime = new Date();
+        const TIME_MULTIPLIER = 60; // 1 second real time = 60 seconds simulated time
+
+        const R_EARTH = 5; 
+        const EARTH_RADIUS_KM = 6371.2;
+        const SCALE = R_EARTH / EARTH_RADIUS_KM;
+
+        // Static Camera States (Since Earth doesn't spin, these target specific regions)
+        const cameraStates = [
+            { pos: new THREE.Vector3(0, 5, 20), lookAt: new THREE.Vector3(0, 0, 0) },     // 0: Wide Equator
+            { pos: new THREE.Vector3(8, 12, 10), lookAt: new THREE.Vector3(0, 0, 0) },    // 1: Northern Hemisphere
+            { pos: new THREE.Vector3(-10, -5, -12), lookAt: new THREE.Vector3(-2, -2, -2) },// 2: Moving to Aus
+            { pos: new THREE.Vector3(-8, -4, -8), lookAt: new THREE.Vector3(-3, -2, -3) },  // 3: Over Australia
+            { pos: new THREE.Vector3(-12, -2, -14), lookAt: new THREE.Vector3(-2, 0, -2) }  // 4: Dashboard Angle
+        ];
+        
+        let currentStep = 0;
+        let isDashboard = false;
+        let targetCameraPos = new THREE.Vector3().copy(cameraStates[0].pos);
+        let targetLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
+        let currentLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
+
+        // --- 2. DATA FETCHING (CELESTRAK) ---
+        async function fetchLiveSpaceData() {
+            const statusEl = document.getElementById('loading-status');
+            
+            try {
+                statusEl.innerText = "Fetching Active Satellites...";
+                const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+                const activeData = await activeRes.text();
+                
+                statusEl.innerText = "Fetching Debris Catalog...";
+                const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
+                const debrisData = await debrisRes.text();
+
+                statusEl.innerText = "Parsing Orbital Elements...";
+                
+                // Parse TLEs (Limit count for smooth web performance)
+                activeSatellites = parseTLEs(activeData, 3000); 
+                debrisSatellites = parseTLEs(debrisData, 1500); 
+                
+                // Update UI Counters
+                document.getElementById('metric-active').innerText = activeSatellites.length.toLocaleString();
+                document.getElementById('metric-debris').innerText = debrisSatellites.length.toLocaleString();
+
+                // Build 3D Geometries
+                buildParticleSystem(activeSatellites, 0x00e5ff, 0.05, 'active');
+                buildParticleSystem(debrisSatellites, 0x777777, 0.05, 'debris');
+
+                // Hide Loader
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 1000);
+
+            } catch (err) {
+                console.error("Failed to fetch live data", err);
+                statusEl.innerText = "Network Error. Please reload the page.";
+            }
+        }
+
+        function parseTLEs(tleString, maxItems) {
+            const lines = tleString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const sats = [];
+            for (let i = 0; i < lines.length && sats.length < maxItems; i += 3) {
+                if (lines[i] && lines[i+1] && lines[i+2]) {
+                    const name = lines[i];
+                    const satrec = satellite.twoline2satrec(lines[i+1], lines[i+2]);
+                    if (satrec) {
+                        sats.push({ name, satrec });
+                        parsedSatNames.push(name);
+                    }
+                }
+            }
+            return sats;
+        }
+
+        // --- 3. THREE.JS SETUP & MATH ---
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x03060a, 0.02);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.copy(cameraStates[0].pos);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            // Lighting to make texture visible
+            scene.add(new THREE.AmbientLight(0x444444));
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            sunLight.position.set(20, 10, 20);
+            scene.add(sunLight);
+            
+            const backLight = new THREE.DirectionalLight(0x004488, 0.8);
+            backLight.position.set(-20, -10, -20);
+            scene.add(backLight);
+
+            buildEarth();
+            window.addEventListener('resize', onWindowResize);
+            fetchLiveSpaceData();
+        }
+
+        // Math: Converts Geographic Lat/Lon to Earth-Fixed Three.js Coordinates
+        // In our setup: Y is North Pole, X is Prime Meridian (Lon 0)
+        function latLonToVector3(lat, lon, radius) {
+            const phi = lat * (Math.PI / 180);
+            const theta = lon * (Math.PI / 180);
+            
+            const x = radius * Math.cos(phi) * Math.cos(theta);
+            const y = radius * Math.sin(phi);
+            const z = -radius * Math.cos(phi) * Math.sin(theta);
+            
+            return new THREE.Vector3(x, y, z);
+        }
+
+        function buildEarth() {
+            earth = new THREE.Group();
+
+            // Load high-contrast dark texture so countries are visible
+            const textureLoader = new THREE.TextureLoader();
+            const earthMat = new THREE.MeshPhongMaterial({
+                color: 0xffffff, // White allows texture colors to show
+                emissive: 0x000000,
+                shininess: 5,
+                transparent: true,
+                opacity: 0.95
+            });
+
+            textureLoader.load(
+                'https://unpkg.com/three-globe/example/img/earth-dark.jpg',
+                (texture) => {
+                    earthMat.map = texture;
+                    earthMat.needsUpdate = true;
+                }
+            );
+
+            const sphereGeo = new THREE.SphereGeometry(R_EARTH, 64, 64);
+            const globe = new THREE.Mesh(sphereGeo, earthMat);
+            
+            // Align the texture's Prime Meridian to match our Math (+X axis)
+            globe.rotation.y = -Math.PI / 2; 
+            earth.add(globe);
+
+            // Tech Wireframe overlay
+            const wireGeo = new THREE.WireframeGeometry(new THREE.SphereGeometry(R_EARTH + 0.01, 32, 32));
+            const wireMat = new THREE.LineBasicMaterial({ color: 0x004466, transparent: true, opacity: 0.1 });
+            earth.add(new THREE.LineSegments(wireGeo, wireMat));
+
+            // Australia Glow Marker
+            const ausPos = latLonToVector3(-25, 133, R_EARTH + 0.02);
+            const ausGlowGeo = new THREE.CircleGeometry(1.2, 32);
+            const ausGlowMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+            const ausMarker = new THREE.Mesh(ausGlowGeo, ausGlowMat);
+            ausMarker.position.copy(ausPos);
+            ausMarker.lookAt(new THREE.Vector3(0,0,0));
+            earth.add(ausMarker);
+
+            // Add Radars (WA and NT)
+            const radars = [{ lat: -33.3, lon: 116.1 }, { lat: -12.5, lon: 131.0 }];
+            const radarMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.0, wireframe: true, side: THREE.DoubleSide });
+            
+            radars.forEach(loc => {
+                const pos = latLonToVector3(loc.lat, loc.lon, R_EARTH);
+                const coneGeo = new THREE.ConeGeometry(1.5, 4, 16);
+                coneGeo.translate(0, 2, 0); // Move origin to base of cone
+                const cone = new THREE.Mesh(coneGeo, radarMat.clone());
+                
+                cone.position.copy(pos);
+                // Point cone outwards from the center of the earth
+                cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
+                
+                auRadars.push(cone);
+                earth.add(cone);
+            });
+
+            scene.add(earth);
+        }
+
+        function buildParticleSystem(satData, hexColor, size, type) {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(satData.length * 3);
+            const colors = new Float32Array(satData.length * 3);
+            const colorObj = new THREE.Color(hexColor);
+
+            for (let i = 0; i < satData.length; i++) {
+                pos[i*3] = 0; pos[i*3+1] = 0; pos[i*3+2] = 0; // Init at origin
+                colors[i*3] = colorObj.r; colors[i*3+1] = colorObj.g; colors[i*3+2] = colorObj.b;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // FIX for NaN bounding sphere error: Lock the bounding sphere
+            geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100);
+
+            const mat = new THREE.PointsMaterial({ size: size, vertexColors: true, transparent: true, opacity: 0.9 });
+            const points = new THREE.Points(geo, mat);
+            
+            if(type === 'active') activePoints = points;
+            if(type === 'debris') debrisPoints = points;
+            
+            scene.add(points);
+        }
+
+        // --- 4. ANIMATION & PROPAGATION ---
+        let lastTime = Date.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Time Management
+            const now = Date.now();
+            const deltaReal = now - lastTime;
+            lastTime = now;
+            simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * TIME_MULTIPLIER));
+
+            // Calculate GMST (Greenwich Mean Sidereal Time)
+            const gmst = satellite.gstime(simulatedTime);
+
+            // Scrollytelling Camera Interpolation
+            if (isDashboard) {
+                targetCameraPos.copy(cameraStates[4].pos);
+                targetLookAt.copy(cameraStates[4].lookAt);
+            } else if (cameraStates[currentStep]) {
+                targetCameraPos.copy(cameraStates[currentStep].pos);
+                targetLookAt.copy(cameraStates[currentStep].lookAt);
+            }
+
+            camera.position.lerp(targetCameraPos, 0.03);
+            currentLookAt.lerp(targetLookAt, 0.03);
+            camera.lookAt(currentLookAt);
+
+            // Propagate Satellites
+            if (activePoints) updateSatellitePositions(activeSatellites, activePoints, gmst, currentStep >= 3, 0x00e5ff);
+            if (debrisPoints) updateSatellitePositions(debrisSatellites, debrisPoints, gmst, currentStep >= 3, 0x777777);
+
+            // Animate Radars
+            if (currentStep >= 3 || isDashboard) {
+                auRadars.forEach((radar, index) => {
+                    const targetOpacity = 0.2 + Math.sin(now / 200 + index) * 0.15;
+                    radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, targetOpacity, 0.1);
+                });
+            } else {
+                auRadars.forEach(radar => radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, 0, 0.1));
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Core Physics: Converts ECI (Space coordinates) to ECF (Earth-Fixed coordinates)
+        function updateSatellitePositions(satDataList, pointSystem, gmst, highlightSouthern, baseColorHex) {
+            const positions = pointSystem.geometry.attributes.position.array;
+            const colors = pointSystem.geometry.attributes.color.array;
+            const baseColor = new THREE.Color(baseColorHex);
+            let colorsNeedUpdate = false;
+
+            const cosG = Math.cos(gmst);
+            const sinG = Math.sin(gmst);
+
+            for (let i = 0; i < satDataList.length; i++) {
+                const satrec = satDataList[i].satrec;
+                const positionAndVelocity = satellite.propagate(satrec, simulatedTime);
+                const posEci = positionAndVelocity.position;
+
+                // Validate position to completely prevent NaN crashes
+                if (!posEci || isNaN(posEci.x) || isNaN(posEci.y) || isNaN(posEci.z)) {
+                    positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0;
+                    continue;
+                }
+
+                // 1. Rotate ECI to Earth-Fixed (ECF) using GMST
+                const xEcf = posEci.x * cosG + posEci.y * sinG;
+                const yEcf = -posEci.x * sinG + posEci.y * cosG;
+                const zEcf = posEci.z;
+
+                // 2. Map ECF to our Three.js coordinate system
+                const threeX = xEcf * SCALE;
+                const threeY = zEcf * SCALE;  // North Pole is Y
+                const threeZ = -yEcf * SCALE; // Match latLonToVector3 math
+
+                positions[i*3] = threeX;
+                positions[i*3+1] = threeY;
+                positions[i*3+2] = threeZ;
+
+                // 3. Highlight logic: Turn red if in Southern Hemisphere
+                if (highlightSouthern && threeY < -0.5) { 
+                    colors[i*3] = 1.0; colors[i*3+1] = 0.2; colors[i*3+2] = 0.2; // Bright Red
+                    colorsNeedUpdate = true;
+                } else {
+                    colors[i*3] = baseColor.r; colors[i*3+1] = baseColor.g; colors[i*3+2] = baseColor.b;
+                    colorsNeedUpdate = true;
+                }
+            }
+            
+            pointSystem.geometry.attributes.position.needsUpdate = true;
+            if (colorsNeedUpdate) pointSystem.geometry.attributes.color.needsUpdate = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 5. INTERACTION & UI ---
+        const steps = document.querySelectorAll('.step');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    steps.forEach(s => s.classList.remove('active'));
+                    entry.target.classList.add('active');
+                    currentStep = parseInt(entry.target.id.split('-')[1]);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        steps.forEach(step => observer.observe(step));
+
+        window.addEventListener('scroll', () => {
+            const scrollPx = document.documentElement.scrollTop;
+            const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const progress = (scrollPx / totalHeight) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+        });
+
+        // Dashboard Logic
+        const enterBtn = document.getElementById('enter-dash-btn');
+        const exitBtn = document.getElementById('exit-dash-btn');
+        const body = document.body;
+
+        enterBtn.addEventListener('click', () => {
+            isDashboard = true;
+            body.classList.add('dashboard-active');
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+        });
+
+        exitBtn.addEventListener('click', () => {
+            isDashboard = false;
+            body.classList.remove('dashboard-active');
+            document.getElementById('step-4').scrollIntoView();
+        });
+
+        // Dashboard Live Clock & Feed Simulator
+        setInterval(() => {
+            document.getElementById('clock').innerText = simulatedTime.toISOString().split('T')[1].split('.')[0] + ' UTC';
+        }, 1000);
+
+        setInterval(() => {
+            if(!body.classList.contains('dashboard-active') || parsedSatNames.length === 0) return;
+            
+            const feed = document.getElementById('data-feed');
+            const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
+            const isDanger = Math.random() > 0.8;
+            
+            const el = document.createElement('div');
+            const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
+            
+            if (isDanger) {
+                el.innerHTML = `<span class="text-red-400">[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field</span>`;
+            } else {
+                el.innerHTML = `[${timeStr}] WA RADAR PING: ${randomSat} orbital track updated`;
+            }
+            
+            feed.appendChild(el);
+            if(feed.children.length > 8) feed.removeChild(feed.firstChild);
+            
+        }, 2000);
+
+        // Start
+        init3D();
+        animate();
+
+    </script>
+</body>
+</html>
