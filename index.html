@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Southern Sentinel | Live Australian SSA</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://unpkg.com; font-src https://fonts.gstatic.com; connect-src 'self' https://celestrak.org;">
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Three.js for 3D Rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -296,6 +297,12 @@
         const R_EARTH = 5; 
         const EARTH_RADIUS_KM = 6371.2;
         const SCALE = R_EARTH / EARTH_RADIUS_KM;
+        const COLOR_ACTIVE = new THREE.Color(0x00e5ff);
+        const COLOR_DEBRIS = new THREE.Color(0x777777);
+        const COLOR_SOUTHERN_HIGHLIGHT = new THREE.Color(0xff3333);
+
+        let clockIntervalId = null;
+        let feedIntervalId = null;
 
         // Static Camera States (Since Earth doesn't spin, these target specific regions)
         const cameraStates = [
@@ -326,10 +333,10 @@
                 const debrisData = await debrisRes.text();
 
                 statusEl.innerText = "Parsing Orbital Elements...";
-                
-                // Parse TLEs (Limit count for smooth web performance)
-                activeSatellites = parseTLEs(activeData, 3000); 
-                debrisSatellites = parseTLEs(debrisData, 1500); 
+
+                // Parse TLEs in chunks to avoid long main-thread stalls
+                activeSatellites = await parseTLEsChunked(activeData, 3000, statusEl, "Parsing Active Catalog");
+                debrisSatellites = await parseTLEsChunked(debrisData, 1500, statusEl, "Parsing Debris Catalog");
                 
                 // Update UI Counters
                 document.getElementById('metric-active').innerText = activeSatellites.length.toLocaleString();
@@ -350,20 +357,43 @@
             }
         }
 
-        function parseTLEs(tleString, maxItems) {
+        function parseTLEsChunked(tleString, maxItems, statusEl, label) {
             const lines = tleString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const sats = [];
-            for (let i = 0; i < lines.length && sats.length < maxItems; i += 3) {
-                if (lines[i] && lines[i+1] && lines[i+2]) {
-                    const name = lines[i];
-                    const satrec = satellite.twoline2satrec(lines[i+1], lines[i+2]);
-                    if (satrec) {
-                        sats.push({ name, satrec });
-                        parsedSatNames.push(name);
+            const totalCandidates = Math.floor(lines.length / 3);
+
+            return new Promise((resolve) => {
+                const sats = [];
+                let i = 0;
+                const CHUNK_SIZE = 180;
+
+                function processChunk() {
+                    const chunkEnd = Math.min(i + (CHUNK_SIZE * 3), lines.length);
+
+                    for (; i < chunkEnd && sats.length < maxItems; i += 3) {
+                        if (lines[i] && lines[i+1] && lines[i+2]) {
+                            const name = lines[i];
+                            const satrec = satellite.twoline2satrec(lines[i+1], lines[i+2]);
+                            if (satrec) {
+                                sats.push({ name, satrec });
+                                parsedSatNames.push(name);
+                            }
+                        }
+                    }
+
+                    if (statusEl) {
+                        const parsedCandidates = Math.min(Math.floor(i / 3), totalCandidates);
+                        statusEl.innerText = `${label}... ${parsedCandidates.toLocaleString()} / ${totalCandidates.toLocaleString()}`;
+                    }
+
+                    if (i < lines.length && sats.length < maxItems) {
+                        requestAnimationFrame(processChunk);
+                    } else {
+                        resolve(sats);
                     }
                 }
-            }
-            return sats;
+
+                processChunk();
+            });
         }
 
         // --- 3. THREE.JS SETUP & MATH ---
@@ -525,8 +555,8 @@
             camera.lookAt(currentLookAt);
 
             // Propagate Satellites
-            if (activePoints) updateSatellitePositions(activeSatellites, activePoints, gmst, currentStep >= 3, 0x00e5ff);
-            if (debrisPoints) updateSatellitePositions(debrisSatellites, debrisPoints, gmst, currentStep >= 3, 0x777777);
+            if (activePoints) updateSatellitePositions(activeSatellites, activePoints, gmst, currentStep >= 3, COLOR_ACTIVE);
+            if (debrisPoints) updateSatellitePositions(debrisSatellites, debrisPoints, gmst, currentStep >= 3, COLOR_DEBRIS);
 
             // Animate Radars
             if (currentStep >= 3 || isDashboard) {
@@ -542,11 +572,9 @@
         }
 
         // Core Physics: Converts ECI (Space coordinates) to ECF (Earth-Fixed coordinates)
-        function updateSatellitePositions(satDataList, pointSystem, gmst, highlightSouthern, baseColorHex) {
+        function updateSatellitePositions(satDataList, pointSystem, gmst, highlightSouthern, baseColor) {
             const positions = pointSystem.geometry.attributes.position.array;
             const colors = pointSystem.geometry.attributes.color.array;
-            const baseColor = new THREE.Color(baseColorHex);
-            let colorsNeedUpdate = false;
 
             const cosG = Math.cos(gmst);
             const sinG = Math.sin(gmst);
@@ -578,16 +606,16 @@
 
                 // 3. Highlight logic: Turn red if in Southern Hemisphere
                 if (highlightSouthern && threeY < -0.5) { 
-                    colors[i*3] = 1.0; colors[i*3+1] = 0.2; colors[i*3+2] = 0.2; // Bright Red
-                    colorsNeedUpdate = true;
+                    colors[i*3] = COLOR_SOUTHERN_HIGHLIGHT.r;
+                    colors[i*3+1] = COLOR_SOUTHERN_HIGHLIGHT.g;
+                    colors[i*3+2] = COLOR_SOUTHERN_HIGHLIGHT.b;
                 } else {
                     colors[i*3] = baseColor.r; colors[i*3+1] = baseColor.g; colors[i*3+2] = baseColor.b;
-                    colorsNeedUpdate = true;
                 }
             }
             
             pointSystem.geometry.attributes.position.needsUpdate = true;
-            if (colorsNeedUpdate) pointSystem.geometry.attributes.color.needsUpdate = true;
+            pointSystem.geometry.attributes.color.needsUpdate = true;
         }
 
         function onWindowResize() {
@@ -613,7 +641,7 @@
         window.addEventListener('scroll', () => {
             const scrollPx = document.documentElement.scrollTop;
             const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const progress = (scrollPx / totalHeight) * 100;
+            const progress = totalHeight > 0 ? (scrollPx / totalHeight) * 100 : 0;
             document.getElementById('progress-bar').style.width = `${progress}%`;
         });
 
@@ -623,42 +651,60 @@
         const body = document.body;
 
         enterBtn.addEventListener('click', () => {
+            stopDashboardFeeds();
             isDashboard = true;
             body.classList.add('dashboard-active');
             window.scrollTo({ top: 0, behavior: 'smooth' }); 
+            startDashboardFeeds();
         });
 
         exitBtn.addEventListener('click', () => {
+            stopDashboardFeeds();
             isDashboard = false;
             body.classList.remove('dashboard-active');
             document.getElementById('step-4').scrollIntoView();
         });
 
-        // Dashboard Live Clock & Feed Simulator
-        setInterval(() => {
-            document.getElementById('clock').innerText = simulatedTime.toISOString().split('T')[1].split('.')[0] + ' UTC';
-        }, 1000);
-
-        setInterval(() => {
-            if(!body.classList.contains('dashboard-active') || parsedSatNames.length === 0) return;
-            
-            const feed = document.getElementById('data-feed');
-            const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
-            const isDanger = Math.random() > 0.8;
-            
-            const el = document.createElement('div');
-            const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
-            
-            if (isDanger) {
-                el.innerHTML = `<span class="text-red-400">[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field</span>`;
-            } else {
-                el.innerHTML = `[${timeStr}] WA RADAR PING: ${randomSat} orbital track updated`;
+        function startDashboardFeeds() {
+            if (!clockIntervalId) {
+                clockIntervalId = setInterval(() => {
+                    document.getElementById('clock').innerText = simulatedTime.toISOString().split('T')[1].split('.')[0] + ' UTC';
+                }, 1000);
             }
-            
-            feed.appendChild(el);
-            if(feed.children.length > 8) feed.removeChild(feed.firstChild);
-            
-        }, 2000);
+
+            if (!feedIntervalId) {
+                feedIntervalId = setInterval(() => {
+                    if (!body.classList.contains('dashboard-active') || parsedSatNames.length === 0) return;
+
+                    const feed = document.getElementById('data-feed');
+                    const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
+                    const isDanger = Math.random() > 0.8;
+
+                    const el = document.createElement('div');
+                    const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
+
+                    if (isDanger) {
+                        el.innerHTML = `<span class="text-red-400">[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field</span>`;
+                    } else {
+                        el.innerHTML = `[${timeStr}] WA RADAR PING: ${randomSat} orbital track updated`;
+                    }
+
+                    feed.appendChild(el);
+                    if(feed.children.length > 8) feed.removeChild(feed.firstChild);
+                }, 2000);
+            }
+        }
+
+        function stopDashboardFeeds() {
+            if (clockIntervalId) {
+                clearInterval(clockIntervalId);
+                clockIntervalId = null;
+            }
+            if (feedIntervalId) {
+                clearInterval(feedIntervalId);
+                feedIntervalId = null;
+            }
+        }
 
         // Start
         init3D();
