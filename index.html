@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Southern Sentinel | Live Australian SSA</title>
-    <meta name="description" content="Interactive 3D visualization of Australia's role in Space Situational Awareness (SSA), tracking real-time satellite and space debris data.">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://unpkg.com https://raw.githubusercontent.com; connect-src 'self' https://celestrak.org;">
-
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://unpkg.com; font-src https://fonts.gstatic.com; connect-src 'self' https://celestrak.org;">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -164,72 +162,120 @@
         </div>
     </div>
 
-    <div class="fixed top-2 right-2 text-right text-[10px] text-gray-500 opacity-80 pointer-events-none">Data provided by CelesTrak.</div>
-    <div id="interaction-hint" class="mono"><span>🖱️ Drag to pan</span><span>🔍 Scroll to zoom</span></div>
-</div>
+    <script>
+        // --- 1. GLOBALS & CONFIG ---
+        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, earth;
+        let activePoints, debrisPoints;
+        let auRadars = [];
+        
+        let activeSatellites = [];
+        let debrisSatellites = [];
+        let parsedSatNames = []; 
+        
+        let simulatedTime = new Date();
+        const TIME_MULTIPLIER = 60; // 1 second real time = 60 seconds simulated time
 
-<script>
-if (window.animationId) cancelAnimationFrame(window.animationId);
-if (window.dashboardIntervals) window.dashboardIntervals.forEach(clearInterval);
-window.dashboardIntervals = [];
+        const R_EARTH = 5; 
+        const EARTH_RADIUS_KM = 6371.2;
+        const SCALE = R_EARTH / EARTH_RADIUS_KM;
+        const COLOR_ACTIVE = new THREE.Color(0x00e5ff);
+        const COLOR_DEBRIS = new THREE.Color(0x777777);
+        const COLOR_SOUTHERN_HIGHLIGHT = new THREE.Color(0xff3333);
 
-let lastTime = Date.now();
-const container = document.getElementById('canvas-container');
-let scene, camera, renderer, earth, controls;
-let activePoints, debrisPoints, starlinkPoints;
-let trailsMesh;
+        let clockIntervalId = null;
+        let feedIntervalId = null;
 
-let allSatellites = { active: [], debris: [], starlink: [] };
-let parsedSatNames = [];
-let simulatedTime = new Date();
-let timeMultiplier = 60;
+        // Static Camera States (Since Earth doesn't spin, these target specific regions)
+        const cameraStates = [
+            { pos: new THREE.Vector3(0, 5, 20), lookAt: new THREE.Vector3(0, 0, 0) },     // 0: Wide Equator
+            { pos: new THREE.Vector3(8, 12, 10), lookAt: new THREE.Vector3(0, 0, 0) },    // 1: Northern Hemisphere
+            { pos: new THREE.Vector3(-10, -5, -12), lookAt: new THREE.Vector3(-2, -2, -2) },// 2: Moving to Aus
+            { pos: new THREE.Vector3(-8, -4, -8), lookAt: new THREE.Vector3(-3, -2, -3) },  // 3: Over Australia
+            { pos: new THREE.Vector3(-12, -2, -14), lookAt: new THREE.Vector3(-2, 0, -2) }  // 4: Dashboard Angle
+        ];
+        
+        let currentStep = 0;
+        let isDashboard = false;
+        let targetCameraPos = new THREE.Vector3().copy(cameraStates[0].pos);
+        let targetLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
+        let currentLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
 
-const R_EARTH = 5;
-const EARTH_RADIUS_KM = 6371.2;
-const SCALE = R_EARTH / EARTH_RADIUS_KM;
-const COLOR_ACTIVE = new THREE.Color(0x00e5ff);
-const COLOR_STARLINK = new THREE.Color(0xffaa00);
-const COLOR_DEBRIS = new THREE.Color(0x888888);
-const COLOR_SOUTHERN = new THREE.Color(0xff3333);
+        // --- 2. DATA FETCHING (CELESTRAK) ---
+        async function fetchLiveSpaceData() {
+            const statusEl = document.getElementById('loading-status');
+            
+            try {
+                statusEl.innerText = "Fetching Active Satellites...";
+                const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+                const activeData = await activeRes.text();
+                
+                statusEl.innerText = "Fetching Debris Catalog...";
+                const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
+                const debrisData = await debrisRes.text();
 
-let currentStep = 0;
-let isDashboard = false;
-let currentFilter = 'all';
-let currentLookAt = new THREE.Vector3(0,0,0);
+                statusEl.innerText = "Parsing Orbital Elements...";
 
-let trailLengthMins = 0;
-let maxTrails = 1000;
-let lastTrailUpdate = 0;
+                // Parse TLEs in chunks to avoid long main-thread stalls
+                activeSatellites = await parseTLEsChunked(activeData, 3000, statusEl, "Parsing Active Catalog");
+                debrisSatellites = await parseTLEsChunked(debrisData, 1500, statusEl, "Parsing Debris Catalog");
+                
+                // Update UI Counters
+                document.getElementById('metric-active').innerText = activeSatellites.length.toLocaleString();
+                document.getElementById('metric-debris').innerText = debrisSatellites.length.toLocaleString();
 
-function latLonToVector3(lat, lon, radius) {
-    const phi = lat * (Math.PI / 180);
-    const theta = lon * (Math.PI / 180);
-    const x = radius * Math.cos(phi) * Math.cos(theta);
-    const y = radius * Math.cos(phi) * Math.sin(theta);
-    const z = radius * Math.sin(phi);
-    return new THREE.Vector3(x, z, -y);
-}
+                // Build 3D Geometries
+                buildParticleSystem(activeSatellites, 0x00e5ff, 0.05, 'active');
+                buildParticleSystem(debrisSatellites, 0x777777, 0.05, 'debris');
 
-function parseTleChunked(lines, maxCount, parser, label) {
-    return new Promise((resolve) => {
-        let i = 0;
-        let count = 0;
-        const chunk = 250;
-        const statusEl = document.getElementById('loading-status');
+                // Hide Loader
+                const loader = document.getElementById('loader');
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 1000);
 
-        function next() {
-            let processed = 0;
-            while (i < lines.length && processed < chunk && count < maxCount) {
-                if (lines[i] && lines[i+1] && lines[i+2]) {
-                    const accepted = parser(lines[i], lines[i+1], lines[i+2]);
-                    if (accepted) count++;
-                }
-                i += 3;
-                processed++;
+            } catch (err) {
+                console.error("Failed to fetch live data", err);
+                statusEl.innerText = "Network Error. Please reload the page.";
             }
-            if (statusEl) statusEl.textContent = `${label} ${count.toLocaleString()} / ${maxCount.toLocaleString()}`;
-            if (i < lines.length && count < maxCount) requestAnimationFrame(next);
-            else resolve();
+        }
+
+        function parseTLEsChunked(tleString, maxItems, statusEl, label) {
+            const lines = tleString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const totalCandidates = Math.floor(lines.length / 3);
+
+            return new Promise((resolve) => {
+                const sats = [];
+                let i = 0;
+                const CHUNK_SIZE = 180;
+
+                function processChunk() {
+                    const chunkEnd = Math.min(i + (CHUNK_SIZE * 3), lines.length);
+
+                    for (; i < chunkEnd && sats.length < maxItems; i += 3) {
+                        if (lines[i] && lines[i+1] && lines[i+2]) {
+                            const name = lines[i];
+                            const satrec = satellite.twoline2satrec(lines[i+1], lines[i+2]);
+                            if (satrec) {
+                                sats.push({ name, satrec });
+                                parsedSatNames.push(name);
+                            }
+                        }
+                    }
+
+                    if (statusEl) {
+                        const parsedCandidates = Math.min(Math.floor(i / 3), totalCandidates);
+                        statusEl.innerText = `${label}... ${parsedCandidates.toLocaleString()} / ${totalCandidates.toLocaleString()}`;
+                    }
+
+                    if (i < lines.length && sats.length < maxItems) {
+                        requestAnimationFrame(processChunk);
+                    } else {
+                        resolve(sats);
+                    }
+                }
+
+                processChunk();
+            });
         }
         next();
     });
@@ -252,20 +298,17 @@ async function fetchLiveSpaceData() {
 
         await parseTleChunked(activeLines, 4500, (name, l1, l2) => {
             const satrec = satellite.twoline2satrec(l1, l2);
-            if (!satrec) return false;
+            if (!satrec) return;
             if (name.includes('STARLINK') && allSatellites.starlink.length < 2000) allSatellites.starlink.push({ name, satrec });
             else if (allSatellites.active.length < 2500) allSatellites.active.push({ name, satrec });
-            else return false;
             parsedSatNames.push(name);
-            return true;
         }, 'Parsing Active/Starlink...');
 
         await parseTleChunked(debrisLines, 1500, (name, l1, l2) => {
             const satrec = satellite.twoline2satrec(l1, l2);
-            if (!satrec) return false;
+            if (!satrec) return;
             allSatellites.debris.push({ name, satrec });
             parsedSatNames.push(name);
-            return true;
         }, 'Parsing Debris...');
 
         document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
@@ -454,97 +497,122 @@ function updateSatellitePositions(satDataList, pointSystem, highlightSouthern, b
             continue;
         }
 
-        positions[i*3] = pos.x;
-        positions[i*3+1] = pos.y;
-        positions[i*3+2] = pos.z;
+        function buildParticleSystem(satData, hexColor, size, type) {
+            const geo = new THREE.BufferGeometry();
+            const pos = new Float32Array(satData.length * 3);
+            const colors = new Float32Array(satData.length * 3);
+            const colorObj = new THREE.Color(hexColor);
 
-        const c = (highlightSouthern && pos.y < 0) ? COLOR_SOUTHERN : baseColor;
-        colors[i*3] = c.r;
-        colors[i*3+1] = c.g;
-        colors[i*3+2] = c.b;
-    }
+            for (let i = 0; i < satData.length; i++) {
+                pos[i*3] = 0; pos[i*3+1] = 0; pos[i*3+2] = 0; // Init at origin
+                colors[i*3] = colorObj.r; colors[i*3+1] = colorObj.g; colors[i*3+2] = colorObj.b;
+            }
 
-    pointSystem.geometry.attributes.position.needsUpdate = true;
-    pointSystem.geometry.attributes.color.needsUpdate = true;
-}
+            geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            // FIX for NaN bounding sphere error: Lock the bounding sphere
+            geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100);
 
-function updateTrails(now, gmst) {
-    if (trailLengthMins === 0) {
-        if (trailsMesh) trailsMesh.visible = false;
-        return;
-    }
-    if (now - lastTrailUpdate < 300) return;
-    lastTrailUpdate = now;
-
-    let activeList = [];
-    let trailColorHex = 0x00e5ff;
-    if (currentFilter === 'starlink') { activeList = allSatellites.starlink; trailColorHex = 0xffaa00; }
-    else if (currentFilter === 'debris') { activeList = allSatellites.debris; trailColorHex = 0x888888; }
-    else activeList = allSatellites.active;
-
-    const dynamicMaxTrails = Math.max(50, Math.min(maxTrails, Math.floor(5000 / Math.max(1, trailLengthMins))));
-    const numTrails = Math.min(dynamicMaxTrails, activeList.length);
-    const minuteStride = trailLengthMins >= 60 ? 3 : trailLengthMins >= 30 ? 2 : 1;
-    if (numTrails === 0) return;
-
-    if (!trailsMesh) {
-        const maxPoints = 90;
-        const geo = new THREE.BufferGeometry();
-        const vertices = new Float32Array(maxTrails * maxPoints * 6);
-        geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-        trailsMesh = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.15 }));
-        scene.add(trailsMesh);
-    }
-
-    trailsMesh.visible = true;
-    trailsMesh.material.color.setHex(trailColorHex);
-
-    const positions = trailsMesh.geometry.attributes.position.array;
-    let idx = 0;
-    const baseTimeMs = simulatedTime.getTime();
-    const stepMs = 60000;
-
-    for (let i = 0; i < numTrails; i++) {
-        const satrec = activeList[i].satrec;
-        let prevPos = getEcefPosition(satrec, baseTimeMs, gmst);
-
-        for (let j = minuteStride; j <= trailLengthMins; j += minuteStride) {
-            const t = baseTimeMs - (j * stepMs);
-            const gmstAtT = satellite.gstime(new Date(t));
-            const pos = getEcefPosition(satrec, t, gmstAtT);
-
-            const a = prevPos || pos || { x: 0, y: 0, z: 0 };
-            const b = pos || prevPos || { x: 0, y: 0, z: 0 };
-            positions[idx++] = a.x; positions[idx++] = a.y; positions[idx++] = a.z;
-            positions[idx++] = b.x; positions[idx++] = b.y; positions[idx++] = b.z;
-            prevPos = pos;
+            const mat = new THREE.PointsMaterial({ size: size, vertexColors: true, transparent: true, opacity: 0.9 });
+            const points = new THREE.Points(geo, mat);
+            
+            if(type === 'active') activePoints = points;
+            if(type === 'debris') debrisPoints = points;
+            
+            scene.add(points);
         }
-    }
 
-    trailsMesh.geometry.setDrawRange(0, idx / 3);
-    trailsMesh.geometry.attributes.position.needsUpdate = true;
-}
+        // --- 4. ANIMATION & PROPAGATION ---
+        let lastTime = Date.now();
 
-function animate() {
-    window.animationId = requestAnimationFrame(animate);
-    const now = Date.now();
-    const deltaReal = Math.min(now - lastTime, 50);
-    lastTime = now;
-    simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * timeMultiplier));
-    const gmst = satellite.gstime(simulatedTime);
+        function animate() {
+            requestAnimationFrame(animate);
 
-    if (!isDashboard) {
-        let targetPos = new THREE.Vector3();
-        let targetLook = new THREE.Vector3(0,0,0);
+            // Time Management
+            const now = Date.now();
+            const deltaReal = now - lastTime;
+            lastTime = now;
+            simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * TIME_MULTIPLIER));
 
-        switch (currentStep) {
-            case 0: targetPos = latLonToVector3(0, 133, R_EARTH).normalize().multiplyScalar(22); break;
-            case 1: targetPos = latLonToVector3(51.5, 0, R_EARTH).normalize().multiplyScalar(18); break;
-            case 2:
-            case 3:
-                targetPos = latLonToVector3(-25, 133, R_EARTH).normalize().multiplyScalar(currentStep === 2 ? 15 : 9);
-                targetLook = latLonToVector3(-25, 133, R_EARTH);
-                break;
+            // Calculate GMST (Greenwich Mean Sidereal Time)
+            const gmst = satellite.gstime(simulatedTime);
+
+            // Scrollytelling Camera Interpolation
+            if (isDashboard) {
+                targetCameraPos.copy(cameraStates[4].pos);
+                targetLookAt.copy(cameraStates[4].lookAt);
+            } else if (cameraStates[currentStep]) {
+                targetCameraPos.copy(cameraStates[currentStep].pos);
+                targetLookAt.copy(cameraStates[currentStep].lookAt);
+            }
+
+            camera.position.lerp(targetCameraPos, 0.03);
+            currentLookAt.lerp(targetLookAt, 0.03);
+            camera.lookAt(currentLookAt);
+
+            // Propagate Satellites
+            if (activePoints) updateSatellitePositions(activeSatellites, activePoints, gmst, currentStep >= 3, COLOR_ACTIVE);
+            if (debrisPoints) updateSatellitePositions(debrisSatellites, debrisPoints, gmst, currentStep >= 3, COLOR_DEBRIS);
+
+            // Animate Radars
+            if (currentStep >= 3 || isDashboard) {
+                auRadars.forEach((radar, index) => {
+                    const targetOpacity = 0.2 + Math.sin(now / 200 + index) * 0.15;
+                    radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, targetOpacity, 0.1);
+                });
+            } else {
+                auRadars.forEach(radar => radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, 0, 0.1));
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Core Physics: Converts ECI (Space coordinates) to ECF (Earth-Fixed coordinates)
+        function updateSatellitePositions(satDataList, pointSystem, gmst, highlightSouthern, baseColor) {
+            const positions = pointSystem.geometry.attributes.position.array;
+            const colors = pointSystem.geometry.attributes.color.array;
+
+            const cosG = Math.cos(gmst);
+            const sinG = Math.sin(gmst);
+
+            for (let i = 0; i < satDataList.length; i++) {
+                const satrec = satDataList[i].satrec;
+                const positionAndVelocity = satellite.propagate(satrec, simulatedTime);
+                const posEci = positionAndVelocity.position;
+
+                // Validate position to completely prevent NaN crashes
+                if (!posEci || isNaN(posEci.x) || isNaN(posEci.y) || isNaN(posEci.z)) {
+                    positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0;
+                    continue;
+                }
+
+                // 1. Rotate ECI to Earth-Fixed (ECF) using GMST
+                const xEcf = posEci.x * cosG + posEci.y * sinG;
+                const yEcf = -posEci.x * sinG + posEci.y * cosG;
+                const zEcf = posEci.z;
+
+                // 2. Map ECF to our Three.js coordinate system
+                const threeX = xEcf * SCALE;
+                const threeY = zEcf * SCALE;  // North Pole is Y
+                const threeZ = -yEcf * SCALE; // Match latLonToVector3 math
+
+                positions[i*3] = threeX;
+                positions[i*3+1] = threeY;
+                positions[i*3+2] = threeZ;
+
+                // 3. Highlight logic: Turn red if in Southern Hemisphere
+                if (highlightSouthern && threeY < -0.5) { 
+                    colors[i*3] = COLOR_SOUTHERN_HIGHLIGHT.r;
+                    colors[i*3+1] = COLOR_SOUTHERN_HIGHLIGHT.g;
+                    colors[i*3+2] = COLOR_SOUTHERN_HIGHLIGHT.b;
+                } else {
+                    colors[i*3] = baseColor.r; colors[i*3+1] = baseColor.g; colors[i*3+2] = baseColor.b;
+                }
+            }
+            
+            pointSystem.geometry.attributes.position.needsUpdate = true;
+            pointSystem.geometry.attributes.color.needsUpdate = true;
         }
 
         camera.position.lerp(targetPos, 0.03);
@@ -555,7 +623,7 @@ function animate() {
     }
 
     const radarActive = currentStep >= 3;
-    if (activePoints) { activePoints.visible = currentFilter === 'all' || currentFilter === 'active'; updateSatellitePositions(allSatellites.active, activePoints, radarActive, COLOR_ACTIVE, gmst); }
+    if (activePoints) { activePoints.visible = currentFilter === 'all'; updateSatellitePositions(allSatellites.active, activePoints, radarActive, COLOR_ACTIVE, gmst); }
     if (starlinkPoints) { starlinkPoints.visible = currentFilter === 'all' || currentFilter === 'starlink'; updateSatellitePositions(allSatellites.starlink, starlinkPoints, radarActive, COLOR_STARLINK, gmst); }
     if (debrisPoints) { debrisPoints.visible = currentFilter === 'all' || currentFilter === 'debris'; updateSatellitePositions(allSatellites.debris, debrisPoints, radarActive, COLOR_DEBRIS, gmst); }
 
