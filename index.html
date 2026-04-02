@@ -4,497 +4,509 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Southern Sentinel | Live Australian SSA</title>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://unpkg.com; font-src https://fonts.gstatic.com; connect-src 'self' https://celestrak.org;">
+    <meta name="description" content="Interactive 3D visualization of Australia's role in Space Situational Awareness (SSA), tracking real-time satellite and space debris data.">
+    
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com https://celestrak.org https://cdn.jsdelivr.net; img-src 'self' data: https://unpkg.com https://raw.githubusercontent.com;">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
-
+    
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-
+    
     <style>
-        :root { --space-bg: #03060a; --accent-blue: #00e5ff; --accent-red: #ff3333; }
+        :root {
+            --space-bg: #03060a;
+            --accent-blue: #00e5ff;
+            --accent-red: #ff3333;
+            --radar-green: #00ff88;
+        }
         body, html {
-            margin: 0; padding: 0; background-color: var(--space-bg); color: #f3f4f6;
-            font-family: 'Inter', sans-serif; overflow-x: hidden;
+            margin: 0; padding: 0;
+            background-color: var(--space-bg);
+            color: #f3f4f6;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
         }
         h1, h2 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
+        /* Loader */
         #loader {
-            position: fixed; inset: 0; background-color: var(--space-bg); z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.5s ease;
+            position: fixed; inset: 0; background-color: var(--space-bg);
+            z-index: 9999; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; transition: opacity 0.5s ease;
         }
         .spinner {
-            width: 50px; height: 50px; border: 3px solid rgba(0, 229, 255, 0.3); border-radius: 50%;
-            border-top-color: var(--accent-blue); animation: spin 1s ease-in-out infinite; margin-bottom: 20px;
+            width: 50px; height: 50px; border: 3px solid rgba(0, 229, 255, 0.3);
+            border-radius: 50%; border-top-color: var(--accent-blue);
+            animation: spin 1s ease-in-out infinite; margin-bottom: 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* 3D Canvas Layer */
         #canvas-container { position: fixed; inset: 0; z-index: 0; }
-
+        
+        /* Interaction Hint */
         #interaction-hint {
             position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px;
-            font-size: 12px; pointer-events: none; z-index: 15; display: flex; gap: 15px;
-            opacity: 0; transition: opacity 0.5s; backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.1);
+            font-size: 12px; pointer-events: none; z-index: 15;
+            backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1);
+            display: flex; gap: 15px; opacity: 0; transition: opacity 0.5s;
         }
         .dashboard-active #interaction-hint { opacity: 0.7; }
 
+        /* Scrollytelling Layer */
         #story-layer { position: relative; z-index: 10; pointer-events: none; }
         .step {
-            min-height: 100vh; display: flex; align-items: center; justify-content: flex-start; padding: 2rem 5vw;
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: flex-start; padding: 2rem 5vw;
         }
         @media (min-width: 768px) { .step { padding: 2rem 10vw; } }
 
         .content-box {
-            max-width: 480px; background: rgba(10, 15, 25, 0.85); backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 229, 255, 0.2); border-left: 4px solid var(--accent-blue); padding: 2rem;
+            max-width: 480px; background: rgba(10, 15, 25, 0.85);
+            backdrop-filter: blur(12px); border: 1px solid rgba(0, 229, 255, 0.2);
+            border-left: 4px solid var(--accent-blue); padding: 2rem;
             pointer-events: auto; opacity: 0.2; transform: translateY(30px);
-            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
         .step.active .content-box { opacity: 1; transform: translateY(0); }
 
+        /* Dashboard UI */
         #dashboard-layer {
-            position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: 0;
-            transition: opacity 0.5s ease; display: flex; flex-direction: column; padding: 1rem; overflow-y: auto;
+            position: fixed; inset: 0; z-index: 20; pointer-events: none;
+            opacity: 0; transition: opacity 0.5s ease; display: flex;
+            flex-direction: column; padding: 1rem; overflow-y: auto;
         }
         .dashboard-active #dashboard-layer { opacity: 1; pointer-events: auto; }
         .dashboard-active #story-layer { display: none; }
-
+        
         .dash-panel {
             background: rgba(5, 8, 15, 0.85); backdrop-filter: blur(8px);
             border: 1px solid rgba(0, 229, 255, 0.3); padding: 1rem;
         }
 
+        /* Bottom Controls */
         #bottom-controls {
             transform: translateY(150%); transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .dashboard-active #bottom-controls { transform: translateY(0); pointer-events: auto; }
 
         .filter-btn {
-            background: transparent; border: 1px solid #374151; color: #9ca3af; padding: 6px 14px;
-            border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+            background: transparent; border: 1px solid #374151; color: #9ca3af;
+            padding: 6px 14px; border-radius: 6px; font-size: 11px; cursor: pointer;
+            transition: all 0.2s; white-space: nowrap;
         }
         .filter-btn.active, .filter-btn:hover {
             border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(0, 229, 255, 0.1);
         }
         .icon-btn {
-            background: rgba(255,255,255,0.05); border: 1px solid #374151; color: #fff; width: 32px; height: 32px;
-            border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;
-            transition: all 0.2s;
+            background: rgba(255,255,255,0.05); border: 1px solid #374151; color: #fff;
+            width: 32px; height: 32px; border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.2s;
         }
         .icon-btn:hover { background: rgba(255,255,255,0.15); border-color: var(--accent-blue); }
 
-        input[type=range] { -webkit-appearance: none; width: 80px; background: transparent; }
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none; width: 80px; background: transparent;
+        }
         input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: var(--accent-blue);
-            cursor: pointer; margin-top: -4px;
+            -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%;
+            background: var(--accent-blue); cursor: pointer; margin-top: -4px;
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%; height: 4px; cursor: pointer; background: #374151; border-radius: 2px;
         }
 
         #progress-bar { position: fixed; top: 0; left: 0; height: 4px; background: var(--accent-blue); width: 0%; z-index: 100; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--space-bg); }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+        
+        .color-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
     </style>
 </head>
 <body>
-<div id="loader" role="alert">
-    <div class="spinner"></div>
-    <h2 class="mono text-xl text-cyan-400 mb-2">INITIALIZING SATELLITE ENGINE</h2>
-    <p id="loading-status" class="mono text-xs text-gray-400 uppercase tracking-widest">Connecting to CelesTrak...</p>
-</div>
 
-<div id="progress-bar"></div>
-<div id="canvas-container"></div>
-
-<main id="story-layer">
-    <section class="step active" id="step-0"><div class="content-box"><p class="text-cyan-400 mono text-xs mb-3 tracking-widest uppercase">Live Visual Investigation</p><h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight">The Southern Sentinel</h1><p class="text-gray-300 text-lg leading-relaxed mb-6">What you are seeing is real-time orbital data. Thousands of active satellites and debris fragments are currently circling Earth, tracing their true paths through space.</p><div class="mono text-xs text-gray-400 animate-bounce mt-8">SCROLL TO EXPLORE &darr;</div></div></section>
-    <section class="step" id="step-1"><div class="content-box ml-0 md:ml-auto md:border-l-0 md:border-r-4 border-red-500"><h2 class="text-3xl mb-4 text-red-400">The Data Void</h2><p class="text-gray-300 leading-relaxed mb-4">Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere (like the UK and US radars).</p><p class="text-gray-300 leading-relaxed">This left a massive blind spot. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their trajectories.</p></div></section>
-    <section class="step" id="step-2"><div class="content-box"><h2 class="text-3xl mb-4">Australia's Advantage</h2><p class="text-gray-300 leading-relaxed mb-4">To prevent the catastrophic Kessler Syndrome, continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.</p></div></section>
-    <section class="step" id="step-3"><div class="content-box mx-auto md:border-l-0 border-t-4 border-cyan-400 text-center"><h2 class="text-3xl mb-4">Explore Live Telemetry</h2><p class="text-gray-300 leading-relaxed mb-8">Take full control of the globe and explore the live orbital environment from Australia's perspective.</p><button id="enter-dash-btn" class="mono bg-cyan-900/50 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 transition-colors uppercase tracking-widest text-sm focus:ring-2 focus:outline-none">Enter Dashboard</button></div></section>
-    <div style="height: 20vh;"></div>
-</main>
-
-<div id="dashboard-layer">
-    <header class="dash-panel flex flex-col md:flex-row justify-between items-start md:items-center rounded-md gap-4">
-        <h2 class="mono text-xl font-bold text-cyan-400 tracking-tighter">AUS-SSA <span class="text-xs text-gray-400 font-normal">OPERATIONAL VIEW</span></h2>
-        <div class="text-left md:text-right mono w-full md:w-auto"><div id="clock" class="text-lg text-white font-bold">00:00:00 UTC</div><div id="clock-date" class="text-[10px] text-gray-400">YYYY-MM-DD</div></div>
-    </header>
-    <div class="flex flex-col md:flex-row justify-between items-stretch flex-grow pb-24 mt-4 gap-4 pointer-events-none">
-        <aside class="dash-panel w-full md:w-72 rounded-md flex flex-col justify-between pointer-events-auto h-auto self-start">
-            <div>
-                <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SOUTHERN TRACKING</h2>
-                <p class="text-xs text-gray-300 leading-relaxed mb-4">Objects turning <span class="text-red-400 font-bold">red</span> are currently passing over the Southern Hemisphere and are visible to Australian radar networks.</p>
-                <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3 mt-6">LIVE METRICS</h2>
-                <div class="grid grid-cols-2 gap-2 mono text-xs">
-                    <div class="bg-gray-900 p-2 rounded border border-gray-800"><div class="text-gray-400 text-[9px]">TOTAL</div><div id="metric-total" class="text-cyan-400 text-lg">0</div></div>
-                    <div class="bg-gray-900 p-2 rounded border border-gray-800"><div class="text-gray-400 text-[9px]">DEBRIS</div><div id="metric-debris" class="text-gray-400 text-lg">0</div></div>
-                </div>
-            </div>
-            <div class="mt-8"><button id="exit-dash-btn" class="mono w-full bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 px-4 py-3 text-xs transition-colors">&larr; EXIT DASHBOARD</button></div>
-        </aside>
-
-        <aside class="dash-panel w-full md:w-96 rounded-md flex flex-col h-64 md:h-auto overflow-y-auto pointer-events-auto">
-            <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SYSTEM FEED</h2>
-            <div id="data-feed" class="flex-grow overflow-hidden mono text-[10px] space-y-2 flex flex-col justify-end"></div>
-        </aside>
+    <!-- Loader -->
+    <div id="loader" role="alert">
+        <div class="spinner"></div>
+        <h2 class="mono text-xl text-cyan-400 mb-2">INITIALIZING SATELLITE ENGINE</h2>
+        <p id="loading-status" class="mono text-xs text-gray-400 uppercase tracking-widest">Connecting to CelesTrak...</p>
     </div>
 
-    <div class="fixed bottom-6 left-0 w-full flex justify-center z-30 pointer-events-none">
-        <div id="bottom-controls" class="dash-panel rounded-full py-3 px-6 flex flex-wrap items-center justify-center gap-6 shadow-2xl">
-            <div class="flex items-center gap-2">
-                <button id="play-pause-btn" class="icon-btn" title="Toggle Camera Auto-Rotate">⏸️</button>
-                <button id="reset-time-btn" class="icon-btn" title="Reset to Live Time">🔄</button>
+    <div id="progress-bar"></div>
+    <div id="canvas-container"></div>
+
+    <!-- NARRATIVE LAYER -->
+    <main id="story-layer">
+        <section class="step active" id="step-0">
+            <div class="content-box">
+                <p class="text-cyan-400 mono text-xs mb-3 tracking-widest uppercase">Live Visual Investigation</p>
+                <h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight">The Southern Sentinel</h1>
+                <p class="text-gray-300 text-lg leading-relaxed mb-6">
+                    What you are seeing is real-time orbital data. Thousands of active satellites and debris fragments are currently circling Earth, tracing their true paths through space.
+                </p>
+                <div class="mono text-xs text-gray-400 animate-bounce mt-8">SCROLL TO EXPLORE &darr;</div>
             </div>
-            <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
-            <div class="flex items-center gap-2 mono"><span class="text-[10px] text-gray-400 font-bold">SPEED</span><input type="range" id="speed-slider" min="0" max="300" value="60"><span id="speed-val" class="text-[10px] text-cyan-400 w-8 text-right">60x</span></div>
-            <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
-            <div class="flex items-center gap-2 mono"><span class="text-[10px] text-gray-400 font-bold">TRAILS</span><input type="range" id="trail-slider" min="0" max="90" step="15" value="0"><span id="trail-val" class="text-[10px] text-cyan-400 w-8 text-right">0m</span></div>
-            <div class="w-px h-6 bg-gray-700 hidden lg:block"></div>
-            <div class="flex gap-2 mono hidden lg:flex" id="filter-controls">
-                <button class="filter-btn active" data-filter="all">All Objects</button>
-                <button class="filter-btn" data-filter="starlink">Starlink</button>
-                <button class="filter-btn" data-filter="debris">Debris</button>
+        </section>
+
+        <section class="step" id="step-1">
+            <div class="content-box ml-0 md:ml-auto md:border-l-0 md:border-r-4 border-red-500">
+                <h2 class="text-3xl mb-4 text-red-400">The Data Void</h2>
+                <p class="text-gray-300 leading-relaxed mb-4">
+                    Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere (like the UK and US radars).
+                </p>
+                <p class="text-gray-300 leading-relaxed">
+                    This left a massive blind spot. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their trajectories.
+                </p>
             </div>
+        </section>
+
+        <section class="step" id="step-2">
+            <div class="content-box">
+                <h2 class="text-3xl mb-4">Australia's Advantage</h2>
+                <p class="text-gray-300 leading-relaxed mb-4">
+                    To prevent the catastrophic Kessler Syndrome, continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.
+                </p>
+            </div>
+        </section>
+
+        <section class="step" id="step-3">
+            <div class="content-box mx-auto md:border-l-0 border-t-4 border-cyan-400 text-center">
+                <h2 class="text-3xl mb-4">Explore Live Telemetry</h2>
+                <p class="text-gray-300 leading-relaxed mb-8">
+                    Take full control of the globe and explore the live orbital environment from Australia's perspective. 
+                </p>
+                <button id="enter-dash-btn" class="mono bg-cyan-900/50 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 transition-colors uppercase tracking-widest text-sm focus:ring-2 focus:outline-none">
+                    Enter Dashboard
+                </button>
+            </div>
+        </section>
+        <div style="height: 20vh;"></div> 
+    </main>
+
+    <!-- DASHBOARD LAYER -->
+    <div id="dashboard-layer">
+        <header class="dash-panel flex flex-col md:flex-row justify-between items-start md:items-center rounded-md gap-4">
+            <div>
+                <h2 class="mono text-xl font-bold text-cyan-400 tracking-tighter">AUS-SSA <span class="text-xs text-gray-400 font-normal">OPERATIONAL VIEW</span></h2>
+            </div>
+            <div class="text-left md:text-right mono w-full md:w-auto">
+                <div id="clock" class="text-lg text-white font-bold">00:00:00 UTC</div>
+                <div id="clock-date" class="text-[10px] text-gray-400">YYYY-MM-DD</div>
+            </div>
+        </header>
+
+        <div class="flex flex-col md:flex-row justify-between items-stretch flex-grow pb-24 mt-4 gap-4 pointer-events-none">
+            <!-- Left Panel -->
+            <aside class="dash-panel w-full md:w-72 rounded-md flex flex-col justify-between pointer-events-auto h-auto self-start">
+                <div>
+                    <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SOUTHERN TRACKING</h2>
+                    <p class="text-xs text-gray-300 leading-relaxed mb-4">
+                        Objects turning <span class="text-red-400 font-bold">red</span> are currently passing over the Southern Hemisphere and are visible to Australian radar networks.
+                    </p>
+                    
+                    <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3 mt-6">LIVE METRICS</h2>
+                    <div class="grid grid-cols-2 gap-2 mono text-xs mb-4">
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
+                            <div class="text-gray-400 text-[9px]">TOTAL</div>
+                            <div id="metric-total" class="text-cyan-400 text-lg">0</div>
+                        </div>
+                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
+                            <div class="text-gray-400 text-[9px]">DEBRIS</div>
+                            <div id="metric-debris" class="text-gray-400 text-lg">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Color Legend -->
+                    <div class="mono text-[10px] space-y-1 text-gray-400 bg-gray-900 p-2 rounded border border-gray-800">
+                        <div><span class="color-dot bg-[#00e5ff]"></span> Active Satellites</div>
+                        <div><span class="color-dot bg-[#ffaa00]"></span> Starlink Constellation</div>
+                        <div><span class="color-dot bg-[#888888]"></span> Space Debris (Cosmos)</div>
+                    </div>
+                </div>
+                <div class="mt-8">
+                    <button id="exit-dash-btn" class="mono w-full bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 px-4 py-3 text-xs transition-colors">
+                        &larr; EXIT DASHBOARD
+                    </button>
+                </div>
+            </aside>
+
+            <!-- Right Panel -->
+            <aside class="dash-panel w-full md:w-96 rounded-md flex flex-col h-64 md:h-auto overflow-y-auto pointer-events-auto">
+                <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SYSTEM FEED</h2>
+                <div id="data-feed" class="flex-grow overflow-hidden mono text-[10px] space-y-2 flex flex-col justify-end">
+                    <!-- Events populate safely here via JS -->
+                </div>
+            </aside>
+        </div>
+        
+        <!-- Bottom Control Strip -->
+        <div class="fixed bottom-6 left-0 w-full flex justify-center z-30 pointer-events-none">
+            <div id="bottom-controls" class="dash-panel rounded-full py-3 px-6 flex flex-wrap items-center justify-center gap-6 shadow-2xl">
+                
+                <!-- Playback -->
+                <div class="flex items-center gap-2">
+                    <button id="play-pause-btn" class="icon-btn" title="Toggle Camera Auto-Rotate">⏸️</button>
+                    <button id="reset-time-btn" class="icon-btn" title="Reset to Live Time">🔄</button>
+                </div>
+
+                <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
+
+                <!-- Speed -->
+                <div class="flex items-center gap-2 mono">
+                    <span class="text-[10px] text-gray-400 font-bold">SPEED</span>
+                    <input type="range" id="speed-slider" min="0" max="300" value="60">
+                    <span id="speed-val" class="text-[10px] text-cyan-400 w-8 text-right">60x</span>
+                </div>
+                
+                <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
+                
+                <!-- Trails Slider -->
+                <div class="flex items-center gap-2 mono">
+                    <span class="text-[10px] text-gray-400 font-bold">TRAILS</span>
+                    <input type="range" id="trail-slider" min="0" max="60" step="15" value="0">
+                    <span id="trail-val" class="text-[10px] text-cyan-400 w-8 text-right">0m</span>
+                </div>
+
+                <div class="w-px h-6 bg-gray-700 hidden lg:block"></div>
+
+                <!-- Filters -->
+                <div class="flex gap-2 mono hidden lg:flex" id="filter-controls">
+                    <button class="filter-btn active" data-filter="all">All Objects</button>
+                    <button class="filter-btn" data-filter="starlink">Starlink</button>
+                    <button class="filter-btn" data-filter="debris">Debris</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="fixed top-2 right-2 text-right text-[10px] text-gray-500 opacity-80 pointer-events-none">
+            Data provided by CelesTrak.
+        </div>
+        <div id="interaction-hint" class="mono">
+            <span>🖱️ Drag to pan</span>
+            <span>🔍 Scroll to zoom</span>
         </div>
     </div>
 
     <script>
-        // --- 1. GLOBALS & CONFIG ---
-        const container = document.getElementById('canvas-container');
-        let scene, camera, renderer, earth;
-        let activePoints, debrisPoints;
-        let auRadars = [];
+        // CLEANUP FOR HOT-RELOADING
+        if (window.animationId) cancelAnimationFrame(window.animationId);
+        if (window.dashboardIntervals) window.dashboardIntervals.forEach(clearInterval);
+        window.dashboardIntervals = [];
+
+        // --- 1. GLOBALS & SETUP ---
+        let lastTime = Date.now(); 
         
-        let activeSatellites = [];
-        let debrisSatellites = [];
+        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, earth, controls;
+        let activePoints, debrisPoints, starlinkPoints;
+        let trailsMesh;
+        
+        let allSatellites = { active: [], debris: [], starlink: [] };
         let parsedSatNames = []; 
         
         let simulatedTime = new Date();
-        const TIME_MULTIPLIER = 60; // 1 second real time = 60 seconds simulated time
-
+        let timeMultiplier = 60; 
+        
         const R_EARTH = 5; 
         const EARTH_RADIUS_KM = 6371.2;
         const SCALE = R_EARTH / EARTH_RADIUS_KM;
-        const COLOR_ACTIVE = new THREE.Color(0x00e5ff);
-        const COLOR_DEBRIS = new THREE.Color(0x777777);
-        const COLOR_SOUTHERN_HIGHLIGHT = new THREE.Color(0xff3333);
 
-        let clockIntervalId = null;
-        let feedIntervalId = null;
-
-        // Static Camera States (Since Earth doesn't spin, these target specific regions)
-        const cameraStates = [
-            { pos: new THREE.Vector3(0, 5, 20), lookAt: new THREE.Vector3(0, 0, 0) },     // 0: Wide Equator
-            { pos: new THREE.Vector3(8, 12, 10), lookAt: new THREE.Vector3(0, 0, 0) },    // 1: Northern Hemisphere
-            { pos: new THREE.Vector3(-10, -5, -12), lookAt: new THREE.Vector3(-2, -2, -2) },// 2: Moving to Aus
-            { pos: new THREE.Vector3(-8, -4, -8), lookAt: new THREE.Vector3(-3, -2, -3) },  // 3: Over Australia
-            { pos: new THREE.Vector3(-12, -2, -14), lookAt: new THREE.Vector3(-2, 0, -2) }  // 4: Dashboard Angle
-        ];
-        
         let currentStep = 0;
         let isDashboard = false;
-        let targetCameraPos = new THREE.Vector3().copy(cameraStates[0].pos);
-        let targetLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
-        let currentLookAt = new THREE.Vector3().copy(cameraStates[0].lookAt);
+        let currentFilter = 'all';
+        let currentLookAt = new THREE.Vector3(0,0,0);
 
-        // --- 2. DATA FETCHING (CELESTRAK) ---
+        // Trails Logic
+        let trailLengthMins = 0; 
+        let maxTrails = 2000; // Increased to handle full combined arrays smoothly
+        let lastTrailUpdate = 0;
+
+        // Base Colors
+        const COLORS = {
+            active: new THREE.Color(0x00e5ff),
+            starlink: new THREE.Color(0xffaa00),
+            debris: new THREE.Color(0x888888),
+            danger: new THREE.Color(0xff3333)
+        };
+
+        // Geographic mapping (+X is Prime Meridian, +Y is North Pole)
+        function latLonToVector3(lat, lon, radius) {
+            const phi = lat * (Math.PI / 180);
+            const theta = lon * (Math.PI / 180);
+            const x = radius * Math.cos(phi) * Math.cos(theta);
+            const y = radius * Math.cos(phi) * Math.sin(theta);
+            const z = radius * Math.sin(phi);
+            return new THREE.Vector3(x, z, -y);
+        }
+
+        // --- 2. DATA FETCHING ---
         async function fetchLiveSpaceData() {
             const statusEl = document.getElementById('loading-status');
-            
             try {
-                statusEl.innerText = "Fetching Active Satellites...";
+                statusEl.textContent = "Fetching Live Catalog...";
+                
                 const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+                if (!activeRes.ok) throw new Error("API Limit");
                 const activeData = await activeRes.text();
                 
-                statusEl.innerText = "Fetching Debris Catalog...";
                 const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
+                if (!debrisRes.ok) throw new Error("API Limit");
                 const debrisData = await debrisRes.text();
 
-                statusEl.innerText = "Parsing Orbital Elements...";
-
-                // Parse TLEs in chunks to avoid long main-thread stalls
-                activeSatellites = await parseTLEsChunked(activeData, 3000, statusEl, "Parsing Active Catalog");
-                debrisSatellites = await parseTLEsChunked(debrisData, 1500, statusEl, "Parsing Debris Catalog");
+                statusEl.textContent = "Processing Orbital Mechanics...";
                 
-                // Update UI Counters
-                document.getElementById('metric-active').innerText = activeSatellites.length.toLocaleString();
-                document.getElementById('metric-debris').innerText = debrisSatellites.length.toLocaleString();
-
-                // Build 3D Geometries
-                buildParticleSystem(activeSatellites, 0x00e5ff, 0.05, 'active');
-                buildParticleSystem(debrisSatellites, 0x777777, 0.05, 'debris');
-
-                // Hide Loader
-                const loader = document.getElementById('loader');
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 1000);
-
+                parseAndCategorizeTLEs(activeData, debrisData);
+                finishLoading();
             } catch (err) {
-                console.error("Failed to fetch live data", err);
-                statusEl.innerText = "Network Error. Please reload the page.";
+                console.warn("Live fetch failed, generating realistic fallback data.", err);
+                statusEl.textContent = "Using offline simulation data...";
+                generateFallbackData();
+                finishLoading();
             }
         }
 
-        function parseTLEsChunked(tleString, maxItems, statusEl, label) {
-            const lines = tleString.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const totalCandidates = Math.floor(lines.length / 3);
+        function parseAndCategorizeTLEs(activeData, debrisData) {
+            const activeLines = activeData.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const debrisLines = debrisData.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
+            let activeCount = 0, starlinkCount = 0, debrisCount = 0;
 
-            return new Promise((resolve) => {
-                const sats = [];
-                let i = 0;
-                const CHUNK_SIZE = 180;
-
-                function processChunk() {
-                    const chunkEnd = Math.min(i + (CHUNK_SIZE * 3), lines.length);
-
-                    for (; i < chunkEnd && sats.length < maxItems; i += 3) {
-                        if (lines[i] && lines[i+1] && lines[i+2]) {
-                            const name = lines[i];
-                            const satrec = satellite.twoline2satrec(lines[i+1], lines[i+2]);
-                            if (satrec) {
-                                sats.push({ name, satrec });
-                                parsedSatNames.push(name);
-                            }
+            for (let i = 0; i < activeLines.length; i += 3) {
+                if (activeCount > 2000 && starlinkCount > 1500) break;
+                
+                if (activeLines[i] && activeLines[i+1] && activeLines[i+2]) {
+                    const name = activeLines[i];
+                    const satrec = satellite.twoline2satrec(activeLines[i+1], activeLines[i+2]);
+                    if (satrec) {
+                        if (name.includes("STARLINK") && starlinkCount < 1500) {
+                            allSatellites.starlink.push({ name, satrec, type: 'starlink' });
+                            starlinkCount++;
+                        } else if (activeCount < 2000) {
+                            allSatellites.active.push({ name, satrec, type: 'active' });
+                            activeCount++;
                         }
-                    }
-
-                    if (statusEl) {
-                        const parsedCandidates = Math.min(Math.floor(i / 3), totalCandidates);
-                        statusEl.innerText = `${label}... ${parsedCandidates.toLocaleString()} / ${totalCandidates.toLocaleString()}`;
-                    }
-
-                    if (i < lines.length && sats.length < maxItems) {
-                        requestAnimationFrame(processChunk);
-                    } else {
-                        resolve(sats);
+                        parsedSatNames.push(name);
                     }
                 }
+            }
 
-                processChunk();
+            for (let i = 0; i < debrisLines.length && debrisCount < 1000; i += 3) {
+                if (debrisLines[i] && debrisLines[i+1] && debrisLines[i+2]) {
+                    const name = debrisLines[i];
+                    const satrec = satellite.twoline2satrec(debrisLines[i+1], debrisLines[i+2]);
+                    if (satrec) {
+                        allSatellites.debris.push({ name, satrec, type: 'debris' });
+                        parsedSatNames.push(name);
+                        debrisCount++;
+                    }
+                }
+            }
+        }
+
+        function generateFallbackData() {
+            for (let i = 0; i < 2000; i++) allSatellites.active.push(createMockSat("SAT-", 400 + Math.random() * 1500, null, 'active'));
+            for (let i = 0; i < 1500; i++) allSatellites.starlink.push(createMockSat("STARLINK-", 550, 53, 'starlink'));
+            for (let i = 0; i < 1000; i++) allSatellites.debris.push(createMockSat("DEBRIS-", 600 + Math.random() * 2000, null, 'debris'));
+        }
+
+        function createMockSat(prefix, alt, incOverride, type) {
+            const name = prefix + Math.floor(Math.random() * 90000 + 10000);
+            parsedSatNames.push(name);
+            return {
+                name: name, type: type,
+                satrec: {
+                    isMock: true, a: EARTH_RADIUS_KM + alt,
+                    i: incOverride ? (incOverride * Math.PI / 180) : (Math.random() - 0.5) * Math.PI * 1.5,
+                    raan: Math.random() * Math.PI * 2, nu: Math.random() * Math.PI * 2,
+                    meanMotion: 13 + Math.random() * 3
+                }
+            };
+        }
+
+        function finishLoading() {
+            document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
+            document.getElementById('metric-debris').textContent = allSatellites.debris.length.toLocaleString();
+
+            buildParticleSystem(allSatellites.active, COLORS.active.getHex(), 0.12, 'active');
+            buildParticleSystem(allSatellites.starlink, COLORS.starlink.getHex(), 0.15, 'starlink');
+            buildParticleSystem(allSatellites.debris, COLORS.debris.getHex(), 0.08, 'debris');
+
+            const loader = document.getElementById('loader');
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 500);
+        }
+
+        // --- 3. THREE.JS GEOMETRY ---
+        function init3D() {
+            if (scene) { while(scene.children.length > 0){ scene.remove(scene.children[0]); } }
+            container.innerHTML = '';
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x03060a, 0.02);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 10, 25);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true; controls.dampingFactor = 0.05;
+            controls.enablePan = false; controls.minDistance = 6; controls.maxDistance = 40;
+            controls.enabled = false; controls.autoRotate = false;
+
+            scene.add(new THREE.AmbientLight(0x1a1a1a));
+            const camLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            camLight.position.set(10, 10, 10);
+            camera.add(camLight);
+            scene.add(camera); 
+
+            buildEarth();
+            window.addEventListener('resize', onWindowResize);
+            fetchLiveSpaceData();
+        }
+
+        function buildEarth() {
+            earth = new THREE.Group();
+
+            const textureLoader = new THREE.TextureLoader();
+            const earthMat = new THREE.MeshPhongMaterial({
+                color: 0x112233, emissive: 0x000000, shininess: 15
             });
-        }
-        next();
-    });
-}
 
-async function fetchLiveSpaceData() {
-    const statusEl = document.getElementById('loading-status');
-    try {
-        statusEl.textContent = 'Fetching Live Catalog...';
-        const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
-        if (!activeRes.ok) throw new Error('API Limit');
-        const activeData = await activeRes.text();
+            textureLoader.load(
+                'https://unpkg.com/three-globe/example/img/earth-dark.jpg',
+                (texture) => { 
+                    texture.wrapS = THREE.RepeatWrapping;
+                    texture.repeat.x = -1; // Flip mapping mathematically to match vectors
+                    earthMat.color.setHex(0xffffff); 
+                    earthMat.map = texture; 
+                    earthMat.needsUpdate = true; 
+                }
+            );
 
-        const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
-        if (!debrisRes.ok) throw new Error('API Limit');
-        const debrisData = await debrisRes.text();
+            const sphereGeo = new THREE.SphereGeometry(R_EARTH, 64, 64);
+            const globe = new THREE.Mesh(sphereGeo, earthMat);
+            globe.rotation.y = -Math.PI / 2; // Align Prime Meridian
+            earth.add(globe);
 
-        const activeLines = activeData.split('\n').map(l => l.trim()).filter(Boolean);
-        const debrisLines = debrisData.split('\n').map(l => l.trim()).filter(Boolean);
-
-        await parseTleChunked(activeLines, 4500, (name, l1, l2) => {
-            const satrec = satellite.twoline2satrec(l1, l2);
-            if (!satrec) return;
-            if (name.includes('STARLINK') && allSatellites.starlink.length < 2000) allSatellites.starlink.push({ name, satrec });
-            else if (allSatellites.active.length < 2500) allSatellites.active.push({ name, satrec });
-            parsedSatNames.push(name);
-        }, 'Parsing Active/Starlink...');
-
-        await parseTleChunked(debrisLines, 1500, (name, l1, l2) => {
-            const satrec = satellite.twoline2satrec(l1, l2);
-            if (!satrec) return;
-            allSatellites.debris.push({ name, satrec });
-            parsedSatNames.push(name);
-        }, 'Parsing Debris...');
-
-        document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
-        document.getElementById('metric-debris').textContent = allSatellites.debris.length.toLocaleString();
-
-        buildParticleSystem(allSatellites.active, 0x00e5ff, 0.12, 'active');
-        buildParticleSystem(allSatellites.starlink, 0xffaa00, 0.15, 'starlink');
-        buildParticleSystem(allSatellites.debris, 0x999999, 0.08, 'debris');
-        hideLoader();
-    } catch (err) {
-        statusEl.textContent = 'Using offline simulation data...';
-        generateFallbackData();
-        hideLoader();
-    }
-}
-
-function generateFallbackData() {
-    for (let i = 0; i < 2000; i++) allSatellites.active.push(createMockSat('SAT-', 400 + Math.random() * 1500));
-    for (let i = 0; i < 1500; i++) allSatellites.starlink.push(createMockSat('STARLINK-', 550, 53));
-    for (let i = 0; i < 1000; i++) allSatellites.debris.push(createMockSat('DEBRIS-', 600 + Math.random() * 2000));
-
-    document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
-    document.getElementById('metric-debris').textContent = allSatellites.debris.length.toLocaleString();
-
-    buildParticleSystem(allSatellites.active, 0x00e5ff, 0.12, 'active');
-    buildParticleSystem(allSatellites.starlink, 0xffaa00, 0.15, 'starlink');
-    buildParticleSystem(allSatellites.debris, 0x999999, 0.08, 'debris');
-}
-
-function createMockSat(prefix, alt, incOverride = null) {
-    const name = prefix + Math.floor(Math.random() * 90000 + 10000);
-    parsedSatNames.push(name);
-    return {
-        name,
-        satrec: {
-            isMock: true,
-            a: EARTH_RADIUS_KM + alt,
-            i: incOverride ? (incOverride * Math.PI / 180) : (Math.random() - 0.5) * Math.PI * 1.5,
-            raan: Math.random() * Math.PI * 2,
-            nu: Math.random() * Math.PI * 2,
-            meanMotion: 13 + Math.random() * 3
-        }
-    };
-}
-
-function hideLoader() {
-    const loader = document.getElementById('loader');
-    loader.style.opacity = '0';
-    setTimeout(() => loader.style.display = 'none', 500);
-}
-
-function init3D() {
-    if (scene) while (scene.children.length > 0) scene.remove(scene.children[0]);
-    container.innerHTML = '';
-
-    scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x03060a, 0.02);
-
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 10, 25);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
-
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.enablePan = false;
-    controls.minDistance = 6;
-    controls.maxDistance = 40;
-    controls.enabled = false;
-    controls.autoRotate = false;
-
-    scene.add(new THREE.AmbientLight(0x1a1a1a));
-    const camLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    camLight.position.set(10, 10, 10);
-    camera.add(camLight);
-    scene.add(camera);
-
-    buildEarth();
-    window.addEventListener('resize', onWindowResize);
-    fetchLiveSpaceData();
-}
-
-function buildEarth() {
-    earth = new THREE.Group();
-    const textureLoader = new THREE.TextureLoader();
-    const earthMat = new THREE.MeshPhongMaterial({ color: 0x112233, emissive: 0x000000, shininess: 15 });
-
-    textureLoader.load('https://unpkg.com/three-globe/example/img/earth-dark.jpg', (texture) => {
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.repeat.x = -1;
-        earthMat.color.setHex(0xffffff);
-        earthMat.map = texture;
-        earthMat.needsUpdate = true;
-    });
-
-    const globe = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 64, 64), earthMat);
-    globe.rotation.y = -Math.PI / 2;
-    earth.add(globe);
-
-    const atmosGeo = new THREE.SphereGeometry(R_EARTH * 1.02, 64, 64);
-    const atmosMat = new THREE.MeshBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.15, side: THREE.BackSide, blending: THREE.AdditiveBlending });
-    earth.add(new THREE.Mesh(atmosGeo, atmosMat));
-    scene.add(earth);
-}
-
-function buildParticleSystem(satData, hexColor, size, type) {
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(satData.length * 3);
-    const colors = new Float32Array(satData.length * 3);
-    const colorObj = new THREE.Color(hexColor);
-
-    for (let i = 0; i < satData.length; i++) {
-        colors[i*3] = colorObj.r;
-        colors[i*3+1] = colorObj.g;
-        colors[i*3+2] = colorObj.b;
-    }
-
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 32; canvas.height = 32;
-    const context = canvas.getContext('2d');
-    const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
-    gradient.addColorStop(0, 'rgba(255,255,255,1)');
-    gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
-    gradient.addColorStop(1, 'rgba(255,255,255,0)');
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 32, 32);
-    const texture = new THREE.Texture(canvas);
-    texture.needsUpdate = true;
-
-    const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: texture, transparent: true, opacity: 1.0, depthWrite: false, blending: THREE.AdditiveBlending });
-    const points = new THREE.Points(geo, mat);
-
-    if (type === 'active') activePoints = points;
-    if (type === 'starlink') starlinkPoints = points;
-    if (type === 'debris') debrisPoints = points;
-
-    scene.add(points);
-}
-
-function getEcefPosition(satrec, timeMs, gmst) {
-    let posEci;
-    if (satrec.isMock) {
-        const t = timeMs / 1000;
-        const n = satrec.meanMotion * (2 * Math.PI) / 86400;
-        const m = satrec.nu + n * t;
-        const r = satrec.a;
-        const x1 = r * Math.cos(m);
-        const y1 = r * Math.sin(m);
-        const y2 = y1 * Math.cos(satrec.i);
-        const z2 = y1 * Math.sin(satrec.i);
-        const x3 = x1 * Math.cos(satrec.raan) - y2 * Math.sin(satrec.raan);
-        const y3 = x1 * Math.sin(satrec.raan) + y2 * Math.cos(satrec.raan);
-        posEci = { x: x3, y: y3, z: z2 };
-    } else {
-        const pv = satellite.propagate(satrec, new Date(timeMs));
-        posEci = pv.position;
-    }
-
-    if (!posEci || isNaN(posEci.x)) return null;
-
-    const cosG = Math.cos(gmst);
-    const sinG = Math.sin(gmst);
-    const xEcf = posEci.x * cosG + posEci.y * sinG;
-    const yEcf = -posEci.x * sinG + posEci.y * cosG;
-    const zEcf = posEci.z;
-
-    return { x: xEcf * SCALE, y: zEcf * SCALE, z: -yEcf * SCALE };
-}
-
-function updateSatellitePositions(satDataList, pointSystem, highlightSouthern, baseColor, gmst) {
-    const positions = pointSystem.geometry.attributes.position.array;
-    const colors = pointSystem.geometry.attributes.color.array;
-
-    for (let i = 0; i < satDataList.length; i++) {
-        const pos = getEcefPosition(satDataList[i].satrec, simulatedTime.getTime(), gmst);
-        if (!pos) {
-            positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0;
-            continue;
+            const atmosGeo = new THREE.SphereGeometry(R_EARTH * 1.02, 64, 64);
+            const atmosMat = new THREE.MeshBasicMaterial({
+                color: 0x44aaff, transparent: true, opacity: 0.15,
+                side: THREE.BackSide, blending: THREE.AdditiveBlending
+            });
+            earth.add(new THREE.Mesh(atmosGeo, atmosMat));
+            scene.add(earth);
         }
 
         function buildParticleSystem(satData, hexColor, size, type) {
@@ -504,261 +516,376 @@ function updateSatellitePositions(satDataList, pointSystem, highlightSouthern, b
             const colorObj = new THREE.Color(hexColor);
 
             for (let i = 0; i < satData.length; i++) {
-                pos[i*3] = 0; pos[i*3+1] = 0; pos[i*3+2] = 0; // Init at origin
+                pos[i*3] = 0; pos[i*3+1] = 0; pos[i*3+2] = 0; 
                 colors[i*3] = colorObj.r; colors[i*3+1] = colorObj.g; colors[i*3+2] = colorObj.b;
             }
 
             geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
             geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-            
-            // FIX for NaN bounding sphere error: Lock the bounding sphere
-            geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100);
+            geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100); 
 
-            const mat = new THREE.PointsMaterial({ size: size, vertexColors: true, transparent: true, opacity: 0.9 });
+            const canvas = document.createElement('canvas');
+            canvas.width = 32; canvas.height = 32;
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+            gradient.addColorStop(0, 'rgba(255,255,255,1)');
+            gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+            gradient.addColorStop(1, 'rgba(255,255,255,0)');
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, 32, 32);
+            const texture = new THREE.Texture(canvas);
+            texture.needsUpdate = true;
+
+            const mat = new THREE.PointsMaterial({ 
+                size: size, vertexColors: true, map: texture,
+                transparent: true, opacity: 1.0, depthWrite: false, blending: THREE.AdditiveBlending
+            });
+            
             const points = new THREE.Points(geo, mat);
-            
             if(type === 'active') activePoints = points;
+            if(type === 'starlink') starlinkPoints = points;
             if(type === 'debris') debrisPoints = points;
-            
             scene.add(points);
         }
 
-        // --- 4. ANIMATION & PROPAGATION ---
-        let lastTime = Date.now();
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            // Time Management
-            const now = Date.now();
-            const deltaReal = now - lastTime;
-            lastTime = now;
-            simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * TIME_MULTIPLIER));
-
-            // Calculate GMST (Greenwich Mean Sidereal Time)
-            const gmst = satellite.gstime(simulatedTime);
-
-            // Scrollytelling Camera Interpolation
-            if (isDashboard) {
-                targetCameraPos.copy(cameraStates[4].pos);
-                targetLookAt.copy(cameraStates[4].lookAt);
-            } else if (cameraStates[currentStep]) {
-                targetCameraPos.copy(cameraStates[currentStep].pos);
-                targetLookAt.copy(cameraStates[currentStep].lookAt);
-            }
-
-            camera.position.lerp(targetCameraPos, 0.03);
-            currentLookAt.lerp(targetLookAt, 0.03);
-            camera.lookAt(currentLookAt);
-
-            // Propagate Satellites
-            if (activePoints) updateSatellitePositions(activeSatellites, activePoints, gmst, currentStep >= 3, COLOR_ACTIVE);
-            if (debrisPoints) updateSatellitePositions(debrisSatellites, debrisPoints, gmst, currentStep >= 3, COLOR_DEBRIS);
-
-            // Animate Radars
-            if (currentStep >= 3 || isDashboard) {
-                auRadars.forEach((radar, index) => {
-                    const targetOpacity = 0.2 + Math.sin(now / 200 + index) * 0.15;
-                    radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, targetOpacity, 0.1);
-                });
+        // --- 4. CORE ORBITAL PHYSICS ---
+        function getEcefPosition(satrec, timeMs) {
+            let posEci;
+            if (satrec.isMock) {
+                const t = timeMs / 1000;
+                const n = satrec.meanMotion * (2 * Math.PI) / 86400; 
+                const m = satrec.nu + n * t;
+                const r = satrec.a;
+                const x1 = r * Math.cos(m);
+                const y1 = r * Math.sin(m);
+                const x2 = x1;
+                const y2 = y1 * Math.cos(satrec.i);
+                const z2 = y1 * Math.sin(satrec.i);
+                const x3 = x2 * Math.cos(satrec.raan) - y2 * Math.sin(satrec.raan);
+                const y3 = x2 * Math.sin(satrec.raan) + y2 * Math.cos(satrec.raan);
+                posEci = { x: x3, y: y3, z: z2 };
             } else {
-                auRadars.forEach(radar => radar.material.opacity = THREE.MathUtils.lerp(radar.material.opacity, 0, 0.1));
+                const pv = satellite.propagate(satrec, new Date(timeMs));
+                posEci = pv.position;
             }
 
-            renderer.render(scene, camera);
-        }
+            if (!posEci || isNaN(posEci.x)) return null;
 
-        // Core Physics: Converts ECI (Space coordinates) to ECF (Earth-Fixed coordinates)
-        function updateSatellitePositions(satDataList, pointSystem, gmst, highlightSouthern, baseColor) {
-            const positions = pointSystem.geometry.attributes.position.array;
-            const colors = pointSystem.geometry.attributes.color.array;
-
+            const gmst = satellite.gstime(new Date(timeMs));
             const cosG = Math.cos(gmst);
             const sinG = Math.sin(gmst);
 
-            for (let i = 0; i < satDataList.length; i++) {
-                const satrec = satDataList[i].satrec;
-                const positionAndVelocity = satellite.propagate(satrec, simulatedTime);
-                const posEci = positionAndVelocity.position;
+            const xEcf = posEci.x * cosG + posEci.y * sinG;
+            const yEcf = -posEci.x * sinG + posEci.y * cosG;
+            const zEcf = posEci.z;
 
-                // Validate position to completely prevent NaN crashes
-                if (!posEci || isNaN(posEci.x) || isNaN(posEci.y) || isNaN(posEci.z)) {
+            return { x: xEcf * SCALE, y: zEcf * SCALE, z: -yEcf * SCALE };
+        }
+
+        function updateSatellitePositions(satDataList, pointSystem, highlightSouthern, baseColorObj) {
+            const positions = pointSystem.geometry.attributes.position.array;
+            const colors = pointSystem.geometry.attributes.color.array;
+            let colorsNeedUpdate = false;
+
+            for (let i = 0; i < satDataList.length; i++) {
+                const pos = getEcefPosition(satDataList[i].satrec, simulatedTime.getTime());
+
+                if (!pos) {
                     positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0;
                     continue;
                 }
 
-                // 1. Rotate ECI to Earth-Fixed (ECF) using GMST
-                const xEcf = posEci.x * cosG + posEci.y * sinG;
-                const yEcf = -posEci.x * sinG + posEci.y * cosG;
-                const zEcf = posEci.z;
+                positions[i*3] = pos.x; positions[i*3+1] = pos.y; positions[i*3+2] = pos.z;
 
-                // 2. Map ECF to our Three.js coordinate system
-                const threeX = xEcf * SCALE;
-                const threeY = zEcf * SCALE;  // North Pole is Y
-                const threeZ = -yEcf * SCALE; // Match latLonToVector3 math
-
-                positions[i*3] = threeX;
-                positions[i*3+1] = threeY;
-                positions[i*3+2] = threeZ;
-
-                // 3. Highlight logic: Turn red if in Southern Hemisphere
-                if (highlightSouthern && threeY < -0.5) { 
-                    colors[i*3] = COLOR_SOUTHERN_HIGHLIGHT.r;
-                    colors[i*3+1] = COLOR_SOUTHERN_HIGHLIGHT.g;
-                    colors[i*3+2] = COLOR_SOUTHERN_HIGHLIGHT.b;
+                if (highlightSouthern && pos.y < 0) { 
+                    colors[i*3] = COLORS.danger.r; colors[i*3+1] = COLORS.danger.g; colors[i*3+2] = COLORS.danger.b;
+                    colorsNeedUpdate = true;
                 } else {
-                    colors[i*3] = baseColor.r; colors[i*3+1] = baseColor.g; colors[i*3+2] = baseColor.b;
+                    colors[i*3] = baseColorObj.r; colors[i*3+1] = baseColorObj.g; colors[i*3+2] = baseColorObj.b;
+                    colorsNeedUpdate = true;
                 }
             }
             
             pointSystem.geometry.attributes.position.needsUpdate = true;
-            pointSystem.geometry.attributes.color.needsUpdate = true;
+            if (colorsNeedUpdate) pointSystem.geometry.attributes.color.needsUpdate = true;
         }
 
-        camera.position.lerp(targetPos, 0.03);
-        currentLookAt.lerp(targetLook, 0.03);
-        camera.lookAt(currentLookAt);
-    } else {
-        controls.update();
-    }
+        // TLE Orbital Trails (With Dynamic Colored Lines)
+        function updateTrails(now) {
+            if (trailLengthMins === 0) {
+                if (trailsMesh) trailsMesh.visible = false;
+                return;
+            }
+            
+            // Throttle trail updates heavily to maintain 60FPS
+            if (now - lastTrailUpdate < 500) return;
+            lastTrailUpdate = now;
 
-    const radarActive = currentStep >= 3;
-    if (activePoints) { activePoints.visible = currentFilter === 'all'; updateSatellitePositions(allSatellites.active, activePoints, radarActive, COLOR_ACTIVE, gmst); }
-    if (starlinkPoints) { starlinkPoints.visible = currentFilter === 'all' || currentFilter === 'starlink'; updateSatellitePositions(allSatellites.starlink, starlinkPoints, radarActive, COLOR_STARLINK, gmst); }
-    if (debrisPoints) { debrisPoints.visible = currentFilter === 'all' || currentFilter === 'debris'; updateSatellitePositions(allSatellites.debris, debrisPoints, radarActive, COLOR_DEBRIS, gmst); }
+            // Compile target list dynamically based on filter
+            let activeList = [];
+            if (currentFilter === 'starlink') activeList = allSatellites.starlink;
+            else if (currentFilter === 'debris') activeList = allSatellites.debris;
+            else activeList = [...allSatellites.active, ...allSatellites.starlink, ...allSatellites.debris]; // ALL
 
-    updateTrails(now, gmst);
-    renderer.render(scene, camera);
-}
+            const numTrails = Math.min(maxTrails, activeList.length);
+            if (numTrails === 0) return;
 
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
+            const maxPoints = 60; // Max segments
+            if (!trailsMesh) {
+                const geo = new THREE.BufferGeometry();
+                const vertices = new Float32Array(maxTrails * maxPoints * 6);
+                const colorArr = new Float32Array(maxTrails * maxPoints * 6);
+                geo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+                geo.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+                const mat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.35 });
+                trailsMesh = new THREE.LineSegments(geo, mat);
+                scene.add(trailsMesh);
+            }
 
-const steps = document.querySelectorAll('.step');
-const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-        if (entry.isIntersecting) {
-            steps.forEach(s => s.classList.remove('active'));
-            entry.target.classList.add('active');
-            currentStep = parseInt(entry.target.id.split('-')[1], 10);
+            trailsMesh.visible = true;
+            const positions = trailsMesh.geometry.attributes.position.array;
+            const colorsArr = trailsMesh.geometry.attributes.color.array;
+            let idx = 0;
+            
+            const baseTimeMs = simulatedTime.getTime();
+            const stepMs = 60000; // 1 min steps
+            const actualPoints = Math.min(trailLengthMins, maxPoints);
+
+            for (let i = 0; i < numTrails; i++) {
+                const sat = activeList[i];
+                let cObj = COLORS.active;
+                if (sat.type === 'starlink') cObj = COLORS.starlink;
+                if (sat.type === 'debris') cObj = COLORS.debris;
+
+                let prevPos = getEcefPosition(sat.satrec, baseTimeMs);
+                
+                for (let j = 1; j <= actualPoints; j++) {
+                    const pos = getEcefPosition(sat.satrec, baseTimeMs - (j * stepMs));
+                    
+                    if (pos && prevPos) {
+                        positions[idx] = prevPos.x; positions[idx+1] = prevPos.y; positions[idx+2] = prevPos.z;
+                        colorsArr[idx] = cObj.r; colorsArr[idx+1] = cObj.g; colorsArr[idx+2] = cObj.b;
+                        
+                        positions[idx+3] = pos.x; positions[idx+4] = pos.y; positions[idx+5] = pos.z;
+                        colorsArr[idx+3] = cObj.r; colorsArr[idx+4] = cObj.g; colorsArr[idx+5] = cObj.b;
+                        idx += 6;
+                    }
+                    prevPos = pos;
+                }
+            }
+            trailsMesh.geometry.setDrawRange(0, idx / 3);
+            trailsMesh.geometry.attributes.position.needsUpdate = true;
+            trailsMesh.geometry.attributes.color.needsUpdate = true;
         }
-    });
-}, { threshold: 0.5 });
-steps.forEach(step => observer.observe(step));
 
-let isScrolling = false;
-window.addEventListener('scroll', () => {
-    if (!isScrolling) {
-        window.requestAnimationFrame(() => {
-            const scrollPx = document.documentElement.scrollTop;
-            const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const progress = totalHeight > 0 ? (scrollPx / totalHeight) * 100 : 0;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
-            isScrolling = false;
+        // --- 5. MAIN ANIMATION LOOP ---
+        function animate() {
+            window.animationId = requestAnimationFrame(animate);
+
+            if (typeof lastTime === 'undefined') return;
+            const now = Date.now();
+            const deltaReal = Math.min(now - lastTime, 50); 
+            lastTime = now;
+            
+            simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * timeMultiplier));
+            const gmst = satellite.gstime(simulatedTime);
+
+            if (earth) earth.rotation.y = gmst;
+
+            // Camera Management
+            if (!isDashboard) {
+                let targetPos = new THREE.Vector3();
+                let targetLook = new THREE.Vector3(0,0,0);
+                
+                switch(currentStep) {
+                    case 0:
+                        targetPos = latLonToVector3(0, 133, R_EARTH).normalize().multiplyScalar(22);
+                        targetLook.set(0, 0, 0);
+                        break;
+                    case 1:
+                        targetPos = latLonToVector3(51.5, 0, R_EARTH).normalize().multiplyScalar(18); // UK
+                        targetLook.set(0, 0, 0);
+                        break;
+                    case 2:
+                    case 3:
+                    case 4:
+                        targetPos = latLonToVector3(-25, 133, R_EARTH).normalize().multiplyScalar(currentStep >= 3 ? 9 : 15);
+                        targetLook = latLonToVector3(-25, 133, R_EARTH);
+                        break;
+                }
+
+                // Smooth spherical interpolation over the surface of the globe
+                const curLength = camera.position.length();
+                const targetLength = targetPos.length();
+                const newLength = THREE.MathUtils.lerp(curLength, targetLength, 0.03);
+
+                camera.position.lerp(targetPos, 0.03);
+                camera.position.setLength(newLength); 
+
+                currentLookAt.lerp(targetLook, 0.03);
+                camera.lookAt(currentLookAt);
+            } else {
+                controls.update(); 
+            }
+
+            // Propagate Satellites
+            const radarActive = currentStep >= 3;
+            if (activePoints) {
+                activePoints.visible = currentFilter === 'all' || currentFilter === 'active';
+                updateSatellitePositions(allSatellites.active, activePoints, radarActive, COLORS.active);
+            }
+            if (starlinkPoints) {
+                starlinkPoints.visible = currentFilter === 'all' || currentFilter === 'starlink';
+                updateSatellitePositions(allSatellites.starlink, starlinkPoints, radarActive, COLORS.starlink);
+            }
+            if (debrisPoints) {
+                debrisPoints.visible = currentFilter === 'all' || currentFilter === 'debris';
+                updateSatellitePositions(allSatellites.debris, debrisPoints, radarActive, COLORS.debris);
+            }
+
+            updateTrails(now);
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 6. INTERACTION & UI ---
+        const steps = document.querySelectorAll('.step');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    steps.forEach(s => s.classList.remove('active'));
+                    entry.target.classList.add('active');
+                    currentStep = parseInt(entry.target.id.split('-')[1]);
+                }
+            });
+        }, { threshold: 0.5 });
+        steps.forEach(step => observer.observe(step));
+
+        let isScrolling = false;
+        window.addEventListener('scroll', () => {
+            if (!isScrolling) {
+                window.requestAnimationFrame(() => {
+                    const scrollPx = document.documentElement.scrollTop;
+                    const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+                    document.getElementById('progress-bar').style.width = `${(scrollPx / totalHeight) * 100}%`;
+                    isScrolling = false;
+                });
+                isScrolling = true;
+            }
         });
-        isScrolling = true;
-    }
-});
 
-const enterBtn = document.getElementById('enter-dash-btn');
-const exitBtn = document.getElementById('exit-dash-btn');
-enterBtn.addEventListener('click', () => {
-    stopDashboardFeeds();
-    isDashboard = true;
-    document.body.classList.add('dashboard-active');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    controls.enabled = true;
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.5;
-    startDashboardFeeds();
-});
+        // Dashboard Navigation
+        const enterBtn = document.getElementById('enter-dash-btn');
+        const exitBtn = document.getElementById('exit-dash-btn');
+        
+        enterBtn.addEventListener('click', () => {
+            isDashboard = true;
+            document.body.classList.add('dashboard-active');
+            window.scrollTo({ top: 0, behavior: 'smooth' }); 
+            controls.enabled = true; 
+            controls.autoRotate = true; 
+            controls.autoRotateSpeed = 0.5;
+            startDashboardFeeds();
+        });
 
-exitBtn.addEventListener('click', () => {
-    isDashboard = false;
-    document.body.classList.remove('dashboard-active');
-    controls.enabled = false;
-    controls.autoRotate = false;
-    stopDashboardFeeds();
-    document.getElementById('step-3').scrollIntoView();
-});
+        exitBtn.addEventListener('click', () => {
+            isDashboard = false;
+            document.body.classList.remove('dashboard-active');
+            controls.enabled = false;
+            controls.autoRotate = false;
+            stopDashboardFeeds();
+            document.getElementById('step-3').scrollIntoView(); 
+        });
 
-const speedSlider = document.getElementById('speed-slider');
-const speedVal = document.getElementById('speed-val');
-speedSlider.addEventListener('input', (e) => {
-    timeMultiplier = parseInt(e.target.value, 10);
-    speedVal.textContent = `${timeMultiplier}x`;
-});
+        // --- BOTTOM CONTROLS ---
+        const speedSlider = document.getElementById('speed-slider');
+        const speedVal = document.getElementById('speed-val');
+        speedSlider.addEventListener('input', (e) => {
+            timeMultiplier = parseInt(e.target.value);
+            speedVal.textContent = timeMultiplier + 'x';
+        });
+        
+        const trailSlider = document.getElementById('trail-slider');
+        const trailVal = document.getElementById('trail-val');
+        trailSlider.addEventListener('input', (e) => {
+            trailLengthMins = parseInt(e.target.value);
+            trailVal.textContent = trailLengthMins + 'm';
+            if (trailLengthMins === 0 && trailsMesh) {
+                trailsMesh.visible = false;
+            }
+        });
 
-const trailSlider = document.getElementById('trail-slider');
-const trailVal = document.getElementById('trail-val');
-trailSlider.addEventListener('input', (e) => {
-    trailLengthMins = parseInt(e.target.value, 10);
-    trailVal.textContent = `${trailLengthMins}m`;
-    if (trailLengthMins === 0 && trailsMesh) trailsMesh.visible = false;
-});
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        playPauseBtn.addEventListener('click', () => {
+            controls.autoRotate = !controls.autoRotate;
+            playPauseBtn.textContent = controls.autoRotate ? '⏸️' : '▶️';
+        });
 
-const playPauseBtn = document.getElementById('play-pause-btn');
-playPauseBtn.addEventListener('click', () => {
-    controls.autoRotate = !controls.autoRotate;
-    playPauseBtn.textContent = controls.autoRotate ? '⏸️' : '▶️';
-});
+        const resetTimeBtn = document.getElementById('reset-time-btn');
+        resetTimeBtn.addEventListener('click', () => {
+            simulatedTime = new Date();
+            if (timeMultiplier === 0) {
+                timeMultiplier = 60;
+                speedSlider.value = 60;
+                speedVal.textContent = '60x';
+            }
+        });
 
-const resetTimeBtn = document.getElementById('reset-time-btn');
-resetTimeBtn.addEventListener('click', () => {
-    simulatedTime = new Date();
-    if (timeMultiplier === 0) {
-        timeMultiplier = 60;
-        speedSlider.value = 60;
-        speedVal.textContent = '60x';
-    }
-});
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                currentFilter = e.target.dataset.filter;
+                // Force instant trail update
+                lastTrailUpdate = 0; 
+            });
+        });
 
-document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-        currentFilter = e.target.dataset.filter;
-    });
-});
+        function startDashboardFeeds() {
+            window.dashboardIntervals.push(setInterval(() => {
+                const parts = simulatedTime.toISOString().split('T');
+                document.getElementById('clock').textContent = parts[1].split('.')[0] + ' UTC';
+                document.getElementById('clock-date').textContent = parts[0];
+            }, 100)); 
 
-function startDashboardFeeds() {
-    window.dashboardIntervals.push(setInterval(() => {
-        const parts = simulatedTime.toISOString().split('T');
-        document.getElementById('clock').textContent = `${parts[1].split('.')[0]} UTC`;
-        document.getElementById('clock-date').textContent = parts[0];
-    }, 250));
+            window.dashboardIntervals.push(setInterval(() => {
+                if(parsedSatNames.length === 0 || timeMultiplier === 0) return;
+                
+                const feed = document.getElementById('data-feed');
+                const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
+                const isDanger = Math.random() > 0.85;
+                const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
+                
+                const el = document.createElement('div');
+                el.className = "text-gray-300";
 
-    window.dashboardIntervals.push(setInterval(() => {
-        if (parsedSatNames.length === 0 || timeMultiplier === 0) return;
+                if (isDanger) {
+                    el.className = "text-red-400 font-bold";
+                    el.textContent = `[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field`;
+                } else {
+                    el.textContent = `[${timeStr}] RADAR PING: ${randomSat} tracked over Southern Ocean`;
+                }
+                
+                feed.appendChild(el);
+                if(feed.children.length > 8) feed.removeChild(feed.firstChild);
+            }, 1500));
+        }
 
-        const feed = document.getElementById('data-feed');
-        const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
-        const isDanger = Math.random() > 0.85;
-        const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
+        function stopDashboardFeeds() {
+            if (window.dashboardIntervals) {
+                window.dashboardIntervals.forEach(clearInterval);
+                window.dashboardIntervals = [];
+            }
+        }
 
-        const el = document.createElement('div');
-        el.className = isDanger ? 'text-red-400 font-bold' : 'text-gray-300';
-        el.textContent = isDanger
-            ? `[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field`
-            : `[${timeStr}] RADAR PING: ${randomSat} tracked over Southern Ocean`;
+        init3D();
+        animate();
 
-        feed.appendChild(el);
-        if (feed.children.length > 8) feed.removeChild(feed.firstChild);
-    }, 1500));
-}
-
-function stopDashboardFeeds() {
-    if (window.dashboardIntervals) {
-        window.dashboardIntervals.forEach(clearInterval);
-        window.dashboardIntervals = [];
-    }
-}
-
-init3D();
-animate();
-</script>
+    </script>
 </body>
 </html>
