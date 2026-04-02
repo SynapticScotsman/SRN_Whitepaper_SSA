@@ -6,277 +6,159 @@
     <title>Southern Sentinel | Live Australian SSA</title>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https://unpkg.com; font-src https://fonts.gstatic.com; connect-src 'self' https://celestrak.org;">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Three.js for 3D Rendering -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <!-- Satellite.js for parsing TLEs and calculating orbital physics -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
-    
+
     <style>
-        :root {
-            --space-bg: #03060a;
-            --accent-blue: #00e5ff;
-            --accent-red: #ff3333;
-            --radar-green: #00ff88;
-        }
+        :root { --space-bg: #03060a; --accent-blue: #00e5ff; --accent-red: #ff3333; }
         body, html {
-            margin: 0;
-            padding: 0;
-            background-color: var(--space-bg);
-            color: #f3f4f6;
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
+            margin: 0; padding: 0; background-color: var(--space-bg); color: #f3f4f6;
+            font-family: 'Inter', sans-serif; overflow-x: hidden;
         }
-        
         h1, h2 { font-family: 'Playfair Display', serif; }
         .mono { font-family: 'JetBrains Mono', monospace; }
 
-        /* Fullscreen Loading Overlay */
         #loader {
-            position: fixed;
-            inset: 0;
-            background-color: var(--space-bg);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            transition: opacity 1s ease;
+            position: fixed; inset: 0; background-color: var(--space-bg); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
         }
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid rgba(0, 229, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: var(--accent-blue);
-            animation: spin 1s ease-in-out infinite;
-            margin-bottom: 20px;
+            width: 50px; height: 50px; border: 3px solid rgba(0, 229, 255, 0.3); border-radius: 50%;
+            border-top-color: var(--accent-blue); animation: spin 1s ease-in-out infinite; margin-bottom: 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* WebGL Background */
-        #canvas-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 0;
-            pointer-events: none;
-        }
+        #canvas-container { position: fixed; inset: 0; z-index: 0; }
 
-        /* Scrollytelling Layer */
-        #story-layer {
-            position: relative;
-            z-index: 10;
+        #interaction-hint {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.6); padding: 8px 16px; border-radius: 20px;
+            font-size: 12px; pointer-events: none; z-index: 15; display: flex; gap: 15px;
+            opacity: 0; transition: opacity 0.5s; backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.1);
         }
+        .dashboard-active #interaction-hint { opacity: 0.7; }
+
+        #story-layer { position: relative; z-index: 10; pointer-events: none; }
         .step {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 2rem 10vw;
-            pointer-events: none;
+            min-height: 100vh; display: flex; align-items: center; justify-content: flex-start; padding: 2rem 5vw;
         }
+        @media (min-width: 768px) { .step { padding: 2rem 10vw; } }
+
         .content-box {
-            max-width: 480px;
-            background: rgba(10, 15, 25, 0.75);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 229, 255, 0.2);
-            border-left: 4px solid var(--accent-blue);
-            padding: 2.5rem;
-            pointer-events: auto;
-            opacity: 0.2;
-            transform: translateY(30px);
-            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            max-width: 480px; background: rgba(10, 15, 25, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 229, 255, 0.2); border-left: 4px solid var(--accent-blue); padding: 2rem;
+            pointer-events: auto; opacity: 0.2; transform: translateY(30px);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
-        .step.active .content-box {
-            opacity: 1;
-            transform: translateY(0);
-        }
+        .step.active .content-box { opacity: 1; transform: translateY(0); }
 
-        /* Dashboard UI Layer */
         #dashboard-layer {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 20;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 1s ease;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            padding: 1.5rem;
+            position: fixed; inset: 0; z-index: 20; pointer-events: none; opacity: 0;
+            transition: opacity 0.5s ease; display: flex; flex-direction: column; padding: 1rem; overflow-y: auto;
         }
-        .dashboard-active #dashboard-layer {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .dashboard-active #canvas-container {
-            pointer-events: auto;
-        }
-        .dashboard-active #story-layer {
-            display: none;
-        }
+        .dashboard-active #dashboard-layer { opacity: 1; pointer-events: auto; }
+        .dashboard-active #story-layer { display: none; }
+
         .dash-panel {
-            background: rgba(5, 8, 15, 0.85);
-            backdrop-filter: blur(8px);
-            border: 1px solid rgba(0, 229, 255, 0.3);
-            padding: 1rem;
-            pointer-events: auto;
+            background: rgba(5, 8, 15, 0.85); backdrop-filter: blur(8px);
+            border: 1px solid rgba(0, 229, 255, 0.3); padding: 1rem;
         }
 
-        /* Progress Bar */
-        #progress-bar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 3px;
-            background: var(--accent-blue);
-            width: 0%;
-            z-index: 100;
+        #bottom-controls {
+            transform: translateY(150%); transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .dashboard-active #bottom-controls { transform: translateY(0); pointer-events: auto; }
+
+        .filter-btn {
+            background: transparent; border: 1px solid #374151; color: #9ca3af; padding: 6px 14px;
+            border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .filter-btn.active, .filter-btn:hover {
+            border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(0, 229, 255, 0.1);
+        }
+        .icon-btn {
+            background: rgba(255,255,255,0.05); border: 1px solid #374151; color: #fff; width: 32px; height: 32px;
+            border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.15); border-color: var(--accent-blue); }
+
+        input[type=range] { -webkit-appearance: none; width: 80px; background: transparent; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 12px; width: 12px; border-radius: 50%; background: var(--accent-blue);
+            cursor: pointer; margin-top: -4px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 4px; cursor: pointer; background: #374151; border-radius: 2px;
         }
 
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: var(--space-bg); }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-        
-        .blinking-dot {
-            width: 8px;
-            height: 8px;
-            background-color: var(--radar-green);
-            border-radius: 50%;
-            display: inline-block;
-            animation: blink 1s infinite;
-        }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        #progress-bar { position: fixed; top: 0; left: 0; height: 4px; background: var(--accent-blue); width: 0%; z-index: 100; }
     </style>
 </head>
 <body>
+<div id="loader" role="alert">
+    <div class="spinner"></div>
+    <h2 class="mono text-xl text-cyan-400 mb-2">INITIALIZING SATELLITE ENGINE</h2>
+    <p id="loading-status" class="mono text-xs text-gray-400 uppercase tracking-widest">Connecting to CelesTrak...</p>
+</div>
 
-    <!-- Loading Screen for Live Data -->
-    <div id="loader">
-        <div class="spinner"></div>
-        <h2 class="mono text-xl text-cyan-400 mb-2">INITIALIZING SATELLITE ENGINE</h2>
-        <p id="loading-status" class="mono text-xs text-gray-500 uppercase tracking-widest">Connecting to CelesTrak for live orbital data...</p>
-    </div>
+<div id="progress-bar"></div>
+<div id="canvas-container"></div>
 
-    <div id="progress-bar"></div>
-    <div id="canvas-container"></div>
+<main id="story-layer">
+    <section class="step active" id="step-0"><div class="content-box"><p class="text-cyan-400 mono text-xs mb-3 tracking-widest uppercase">Live Visual Investigation</p><h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight">The Southern Sentinel</h1><p class="text-gray-300 text-lg leading-relaxed mb-6">What you are seeing is real-time orbital data. Thousands of active satellites and debris fragments are currently circling Earth, tracing their true paths through space.</p><div class="mono text-xs text-gray-400 animate-bounce mt-8">SCROLL TO EXPLORE &darr;</div></div></section>
+    <section class="step" id="step-1"><div class="content-box ml-0 md:ml-auto md:border-l-0 md:border-r-4 border-red-500"><h2 class="text-3xl mb-4 text-red-400">The Data Void</h2><p class="text-gray-300 leading-relaxed mb-4">Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere (like the UK and US radars).</p><p class="text-gray-300 leading-relaxed">This left a massive blind spot. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their trajectories.</p></div></section>
+    <section class="step" id="step-2"><div class="content-box"><h2 class="text-3xl mb-4">Australia's Advantage</h2><p class="text-gray-300 leading-relaxed mb-4">To prevent the catastrophic Kessler Syndrome, continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.</p></div></section>
+    <section class="step" id="step-3"><div class="content-box mx-auto md:border-l-0 border-t-4 border-cyan-400 text-center"><h2 class="text-3xl mb-4">Explore Live Telemetry</h2><p class="text-gray-300 leading-relaxed mb-8">Take full control of the globe and explore the live orbital environment from Australia's perspective.</p><button id="enter-dash-btn" class="mono bg-cyan-900/50 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 transition-colors uppercase tracking-widest text-sm focus:ring-2 focus:outline-none">Enter Dashboard</button></div></section>
+    <div style="height: 20vh;"></div>
+</main>
 
-    <!-- NARRATIVE LAYER -->
-    <div id="story-layer">
-        <div class="step active" id="step-0">
-            <div class="content-box">
-                <p class="text-cyan-400 mono text-xs mb-3 tracking-widest uppercase">Live Visual Investigation</p>
-                <h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight">The Southern Sentinel</h1>
-                <p class="text-gray-300 text-lg leading-relaxed mb-6">
-                    What you are seeing is not a simulation. This engine is rendering real-time orbital data for thousands of active satellites and debris fragments currently circling Earth.
-                </p>
-                <div class="mono text-xs text-gray-500 animate-bounce mt-8">SCROLL TO EXPLORE &darr;</div>
-            </div>
-        </div>
-
-        <div class="step" id="step-1">
-            <div class="content-box ml-auto" style="margin-left: auto; border-left: none; border-right: 4px solid var(--accent-red);">
-                <h2 class="text-3xl mb-4 text-red-400">The Data Void</h2>
-                <p class="text-gray-300 leading-relaxed mb-4">
-                    Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere.
-                </p>
-                <p class="text-gray-300 leading-relaxed">
-                    This left a massive blind spot. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their exact trajectories.
-                </p>
-            </div>
-        </div>
-
-        <div class="step" id="step-2">
-            <div class="content-box">
-                <h2 class="text-3xl mb-4">Australia's Advantage</h2>
-                <p class="text-gray-300 leading-relaxed mb-4">
-                    To prevent the catastrophic Kessler Syndrome, continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.
-                </p>
-            </div>
-        </div>
-
-        <div class="step" id="step-3">
-            <div class="content-box">
-                <h2 class="text-3xl mb-4 text-green-400 flex items-center gap-3">
-                    <span class="blinking-dot"></span> Radar Active
-                </h2>
-                <p class="text-gray-300 leading-relaxed mb-4">
-                    Commercial SSA networks now blanket the southern skies. 
-                    <br><br>
-                    <span class="text-xs mono text-cyan-400">Notice the objects turning red as they pass through the southern hemisphere—representing active tracking by southern radars.</span>
-                </p>
-            </div>
-        </div>
-
-        <div class="step" id="step-4">
-            <div class="content-box text-center" style="margin: 0 auto; border-left: none; border-top: 4px solid var(--accent-blue);">
-                <h2 class="text-3xl mb-4">Explore Live Telemetry</h2>
-                <p class="text-gray-300 leading-relaxed mb-8">
-                    Transition to the operational dashboard to view the current orbital environment above Australia based on live CelesTrak data.
-                </p>
-                <button id="enter-dash-btn" class="mono bg-cyan-900/50 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 transition-colors uppercase tracking-widest text-sm">
-                    Access Live Dashboard
-                </button>
-            </div>
-        </div>
-        <div style="height: 20vh;"></div> 
-    </div>
-
-    <!-- DASHBOARD LAYER -->
-    <div id="dashboard-layer">
-        <header class="dash-panel flex justify-between items-center rounded-md">
+<div id="dashboard-layer">
+    <header class="dash-panel flex flex-col md:flex-row justify-between items-start md:items-center rounded-md gap-4">
+        <h2 class="mono text-xl font-bold text-cyan-400 tracking-tighter">AUS-SSA <span class="text-xs text-gray-400 font-normal">OPERATIONAL VIEW</span></h2>
+        <div class="text-left md:text-right mono w-full md:w-auto"><div id="clock" class="text-lg text-white font-bold">00:00:00 UTC</div><div id="clock-date" class="text-[10px] text-gray-400">YYYY-MM-DD</div></div>
+    </header>
+    <div class="flex flex-col md:flex-row justify-between items-stretch flex-grow pb-24 mt-4 gap-4 pointer-events-none">
+        <aside class="dash-panel w-full md:w-72 rounded-md flex flex-col justify-between pointer-events-auto h-auto self-start">
             <div>
-                <h1 class="mono text-xl font-bold text-cyan-400 tracking-tighter">AUS-SSA <span class="text-xs text-gray-500 font-normal">OPERATIONAL VIEW</span></h1>
+                <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SOUTHERN TRACKING</h2>
+                <p class="text-xs text-gray-300 leading-relaxed mb-4">Objects turning <span class="text-red-400 font-bold">red</span> are currently passing over the Southern Hemisphere and are visible to Australian radar networks.</p>
+                <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3 mt-6">LIVE METRICS</h2>
+                <div class="grid grid-cols-2 gap-2 mono text-xs">
+                    <div class="bg-gray-900 p-2 rounded border border-gray-800"><div class="text-gray-400 text-[9px]">TOTAL</div><div id="metric-total" class="text-cyan-400 text-lg">0</div></div>
+                    <div class="bg-gray-900 p-2 rounded border border-gray-800"><div class="text-gray-400 text-[9px]">DEBRIS</div><div id="metric-debris" class="text-gray-400 text-lg">0</div></div>
+                </div>
             </div>
-            <div class="text-right mono">
-                <div id="clock" class="text-lg">00:00:00 UTC</div>
-                <div class="text-[10px] text-gray-500">LIVE PROPAGATION ENGINE (SPEED: 60x)</div>
+            <div class="mt-8"><button id="exit-dash-btn" class="mono w-full bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-600 px-4 py-3 text-xs transition-colors">&larr; EXIT DASHBOARD</button></div>
+        </aside>
+
+        <aside class="dash-panel w-full md:w-96 rounded-md flex flex-col h-64 md:h-auto overflow-y-auto pointer-events-auto">
+            <h2 class="mono text-xs text-gray-400 border-b border-gray-700 pb-2 mb-3">SYSTEM FEED</h2>
+            <div id="data-feed" class="flex-grow overflow-hidden mono text-[10px] space-y-2 flex flex-col justify-end"></div>
+        </aside>
+    </div>
+
+    <div class="fixed bottom-6 left-0 w-full flex justify-center z-30 pointer-events-none">
+        <div id="bottom-controls" class="dash-panel rounded-full py-3 px-6 flex flex-wrap items-center justify-center gap-6 shadow-2xl">
+            <div class="flex items-center gap-2">
+                <button id="play-pause-btn" class="icon-btn" title="Toggle Camera Auto-Rotate">⏸️</button>
+                <button id="reset-time-btn" class="icon-btn" title="Reset to Live Time">🔄</button>
             </div>
-        </header>
-
-        <div class="flex justify-between items-end flex-grow pb-4 mt-4 gap-4">
-            <aside class="dash-panel w-72 rounded-md h-full flex flex-col justify-between max-h-[60vh]">
-                <div>
-                    <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3">SYSTEM STATUS</h3>
-                    <div class="flex items-center gap-2 mb-2 mono text-xs">
-                        <div class="w-2 h-2 bg-green-500 rounded-full"></div> WA RADAR: <span class="text-green-400">ONLINE</span>
-                    </div>
-                    <div class="flex items-center gap-2 mb-4 mono text-xs">
-                        <div class="w-2 h-2 bg-green-500 rounded-full"></div> NT RADAR: <span class="text-green-400">ONLINE</span>
-                    </div>
-
-                    <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3 mt-6">LIVE METRICS</h3>
-                    <div class="grid grid-cols-2 gap-2 mono text-xs">
-                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
-                            <div class="text-gray-500 text-[9px]">ACTIVE SATS</div>
-                            <div id="metric-active" class="text-cyan-400 text-lg">0</div>
-                        </div>
-                        <div class="bg-gray-900 p-2 rounded border border-gray-800">
-                            <div class="text-gray-500 text-[9px]">DEBRIS (SAMPLE)</div>
-                            <div id="metric-debris" class="text-gray-400 text-lg">0</div>
-                        </div>
-                    </div>
-                </div>
-                <div>
-                    <button id="exit-dash-btn" class="mono w-full bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-600 px-4 py-2 text-xs transition-colors">
-                        &larr; RETURN TO BRIEFING
-                    </button>
-                </div>
-            </aside>
-
-            <aside class="dash-panel w-80 rounded-md h-full max-h-[60vh] flex flex-col">
-                <h3 class="mono text-xs text-gray-500 border-b border-gray-700 pb-2 mb-3">SOUTHERN HEMISPHERE FEED</h3>
-                <div id="data-feed" class="flex-grow overflow-hidden mono text-[10px] space-y-2 text-gray-400 flex flex-col justify-end">
-                    <!-- Events will populate here -->
-                </div>
-            </aside>
+            <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
+            <div class="flex items-center gap-2 mono"><span class="text-[10px] text-gray-400 font-bold">SPEED</span><input type="range" id="speed-slider" min="0" max="300" value="60"><span id="speed-val" class="text-[10px] text-cyan-400 w-8 text-right">60x</span></div>
+            <div class="w-px h-6 bg-gray-700 hidden sm:block"></div>
+            <div class="flex items-center gap-2 mono"><span class="text-[10px] text-gray-400 font-bold">TRAILS</span><input type="range" id="trail-slider" min="0" max="90" step="15" value="0"><span id="trail-val" class="text-[10px] text-cyan-400 w-8 text-right">0m</span></div>
+            <div class="w-px h-6 bg-gray-700 hidden lg:block"></div>
+            <div class="flex gap-2 mono hidden lg:flex" id="filter-controls">
+                <button class="filter-btn active" data-filter="all">All Objects</button>
+                <button class="filter-btn" data-filter="starlink">Starlink</button>
+                <button class="filter-btn" data-filter="debris">Debris</button>
+            </div>
         </div>
     </div>
 
@@ -395,109 +277,224 @@
                 processChunk();
             });
         }
+        next();
+    });
+}
 
-        // --- 3. THREE.JS SETUP & MATH ---
-        function init3D() {
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x03060a, 0.02);
+async function fetchLiveSpaceData() {
+    const statusEl = document.getElementById('loading-status');
+    try {
+        statusEl.textContent = 'Fetching Live Catalog...';
+        const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
+        if (!activeRes.ok) throw new Error('API Limit');
+        const activeData = await activeRes.text();
 
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.copy(cameraStates[0].pos);
+        const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
+        if (!debrisRes.ok) throw new Error('API Limit');
+        const debrisData = await debrisRes.text();
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            container.appendChild(renderer.domElement);
+        const activeLines = activeData.split('\n').map(l => l.trim()).filter(Boolean);
+        const debrisLines = debrisData.split('\n').map(l => l.trim()).filter(Boolean);
 
-            // Lighting to make texture visible
-            scene.add(new THREE.AmbientLight(0x444444));
-            const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            sunLight.position.set(20, 10, 20);
-            scene.add(sunLight);
-            
-            const backLight = new THREE.DirectionalLight(0x004488, 0.8);
-            backLight.position.set(-20, -10, -20);
-            scene.add(backLight);
+        await parseTleChunked(activeLines, 4500, (name, l1, l2) => {
+            const satrec = satellite.twoline2satrec(l1, l2);
+            if (!satrec) return;
+            if (name.includes('STARLINK') && allSatellites.starlink.length < 2000) allSatellites.starlink.push({ name, satrec });
+            else if (allSatellites.active.length < 2500) allSatellites.active.push({ name, satrec });
+            parsedSatNames.push(name);
+        }, 'Parsing Active/Starlink...');
 
-            buildEarth();
-            window.addEventListener('resize', onWindowResize);
-            fetchLiveSpaceData();
+        await parseTleChunked(debrisLines, 1500, (name, l1, l2) => {
+            const satrec = satellite.twoline2satrec(l1, l2);
+            if (!satrec) return;
+            allSatellites.debris.push({ name, satrec });
+            parsedSatNames.push(name);
+        }, 'Parsing Debris...');
+
+        document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
+        document.getElementById('metric-debris').textContent = allSatellites.debris.length.toLocaleString();
+
+        buildParticleSystem(allSatellites.active, 0x00e5ff, 0.12, 'active');
+        buildParticleSystem(allSatellites.starlink, 0xffaa00, 0.15, 'starlink');
+        buildParticleSystem(allSatellites.debris, 0x999999, 0.08, 'debris');
+        hideLoader();
+    } catch (err) {
+        statusEl.textContent = 'Using offline simulation data...';
+        generateFallbackData();
+        hideLoader();
+    }
+}
+
+function generateFallbackData() {
+    for (let i = 0; i < 2000; i++) allSatellites.active.push(createMockSat('SAT-', 400 + Math.random() * 1500));
+    for (let i = 0; i < 1500; i++) allSatellites.starlink.push(createMockSat('STARLINK-', 550, 53));
+    for (let i = 0; i < 1000; i++) allSatellites.debris.push(createMockSat('DEBRIS-', 600 + Math.random() * 2000));
+
+    document.getElementById('metric-total').textContent = (allSatellites.active.length + allSatellites.starlink.length).toLocaleString();
+    document.getElementById('metric-debris').textContent = allSatellites.debris.length.toLocaleString();
+
+    buildParticleSystem(allSatellites.active, 0x00e5ff, 0.12, 'active');
+    buildParticleSystem(allSatellites.starlink, 0xffaa00, 0.15, 'starlink');
+    buildParticleSystem(allSatellites.debris, 0x999999, 0.08, 'debris');
+}
+
+function createMockSat(prefix, alt, incOverride = null) {
+    const name = prefix + Math.floor(Math.random() * 90000 + 10000);
+    parsedSatNames.push(name);
+    return {
+        name,
+        satrec: {
+            isMock: true,
+            a: EARTH_RADIUS_KM + alt,
+            i: incOverride ? (incOverride * Math.PI / 180) : (Math.random() - 0.5) * Math.PI * 1.5,
+            raan: Math.random() * Math.PI * 2,
+            nu: Math.random() * Math.PI * 2,
+            meanMotion: 13 + Math.random() * 3
         }
+    };
+}
 
-        // Math: Converts Geographic Lat/Lon to Earth-Fixed Three.js Coordinates
-        // In our setup: Y is North Pole, X is Prime Meridian (Lon 0)
-        function latLonToVector3(lat, lon, radius) {
-            const phi = lat * (Math.PI / 180);
-            const theta = lon * (Math.PI / 180);
-            
-            const x = radius * Math.cos(phi) * Math.cos(theta);
-            const y = radius * Math.sin(phi);
-            const z = -radius * Math.cos(phi) * Math.sin(theta);
-            
-            return new THREE.Vector3(x, y, z);
-        }
+function hideLoader() {
+    const loader = document.getElementById('loader');
+    loader.style.opacity = '0';
+    setTimeout(() => loader.style.display = 'none', 500);
+}
 
-        function buildEarth() {
-            earth = new THREE.Group();
+function init3D() {
+    if (scene) while (scene.children.length > 0) scene.remove(scene.children[0]);
+    container.innerHTML = '';
 
-            // Load high-contrast dark texture so countries are visible
-            const textureLoader = new THREE.TextureLoader();
-            const earthMat = new THREE.MeshPhongMaterial({
-                color: 0xffffff, // White allows texture colors to show
-                emissive: 0x000000,
-                shininess: 5,
-                transparent: true,
-                opacity: 0.95
-            });
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x03060a, 0.02);
 
-            textureLoader.load(
-                'https://unpkg.com/three-globe/example/img/earth-dark.jpg',
-                (texture) => {
-                    earthMat.map = texture;
-                    earthMat.needsUpdate = true;
-                }
-            );
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 10, 25);
 
-            const sphereGeo = new THREE.SphereGeometry(R_EARTH, 64, 64);
-            const globe = new THREE.Mesh(sphereGeo, earthMat);
-            
-            // Align the texture's Prime Meridian to match our Math (+X axis)
-            globe.rotation.y = -Math.PI / 2; 
-            earth.add(globe);
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
 
-            // Tech Wireframe overlay
-            const wireGeo = new THREE.WireframeGeometry(new THREE.SphereGeometry(R_EARTH + 0.01, 32, 32));
-            const wireMat = new THREE.LineBasicMaterial({ color: 0x004466, transparent: true, opacity: 0.1 });
-            earth.add(new THREE.LineSegments(wireGeo, wireMat));
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.enablePan = false;
+    controls.minDistance = 6;
+    controls.maxDistance = 40;
+    controls.enabled = false;
+    controls.autoRotate = false;
 
-            // Australia Glow Marker
-            const ausPos = latLonToVector3(-25, 133, R_EARTH + 0.02);
-            const ausGlowGeo = new THREE.CircleGeometry(1.2, 32);
-            const ausGlowMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
-            const ausMarker = new THREE.Mesh(ausGlowGeo, ausGlowMat);
-            ausMarker.position.copy(ausPos);
-            ausMarker.lookAt(new THREE.Vector3(0,0,0));
-            earth.add(ausMarker);
+    scene.add(new THREE.AmbientLight(0x1a1a1a));
+    const camLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    camLight.position.set(10, 10, 10);
+    camera.add(camLight);
+    scene.add(camera);
 
-            // Add Radars (WA and NT)
-            const radars = [{ lat: -33.3, lon: 116.1 }, { lat: -12.5, lon: 131.0 }];
-            const radarMat = new THREE.MeshBasicMaterial({ color: 0x00ff88, transparent: true, opacity: 0.0, wireframe: true, side: THREE.DoubleSide });
-            
-            radars.forEach(loc => {
-                const pos = latLonToVector3(loc.lat, loc.lon, R_EARTH);
-                const coneGeo = new THREE.ConeGeometry(1.5, 4, 16);
-                coneGeo.translate(0, 2, 0); // Move origin to base of cone
-                const cone = new THREE.Mesh(coneGeo, radarMat.clone());
-                
-                cone.position.copy(pos);
-                // Point cone outwards from the center of the earth
-                cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
-                
-                auRadars.push(cone);
-                earth.add(cone);
-            });
+    buildEarth();
+    window.addEventListener('resize', onWindowResize);
+    fetchLiveSpaceData();
+}
 
-            scene.add(earth);
+function buildEarth() {
+    earth = new THREE.Group();
+    const textureLoader = new THREE.TextureLoader();
+    const earthMat = new THREE.MeshPhongMaterial({ color: 0x112233, emissive: 0x000000, shininess: 15 });
+
+    textureLoader.load('https://unpkg.com/three-globe/example/img/earth-dark.jpg', (texture) => {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.repeat.x = -1;
+        earthMat.color.setHex(0xffffff);
+        earthMat.map = texture;
+        earthMat.needsUpdate = true;
+    });
+
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 64, 64), earthMat);
+    globe.rotation.y = -Math.PI / 2;
+    earth.add(globe);
+
+    const atmosGeo = new THREE.SphereGeometry(R_EARTH * 1.02, 64, 64);
+    const atmosMat = new THREE.MeshBasicMaterial({ color: 0x44aaff, transparent: true, opacity: 0.15, side: THREE.BackSide, blending: THREE.AdditiveBlending });
+    earth.add(new THREE.Mesh(atmosGeo, atmosMat));
+    scene.add(earth);
+}
+
+function buildParticleSystem(satData, hexColor, size, type) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(satData.length * 3);
+    const colors = new Float32Array(satData.length * 3);
+    const colorObj = new THREE.Color(hexColor);
+
+    for (let i = 0; i < satData.length; i++) {
+        colors[i*3] = colorObj.r;
+        colors[i*3+1] = colorObj.g;
+        colors[i*3+2] = colorObj.b;
+    }
+
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), 100);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 32; canvas.height = 32;
+    const context = canvas.getContext('2d');
+    const gradient = context.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gradient.addColorStop(0, 'rgba(255,255,255,1)');
+    gradient.addColorStop(0.3, 'rgba(255,255,255,0.8)');
+    gradient.addColorStop(1, 'rgba(255,255,255,0)');
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, 32, 32);
+    const texture = new THREE.Texture(canvas);
+    texture.needsUpdate = true;
+
+    const mat = new THREE.PointsMaterial({ size, vertexColors: true, map: texture, transparent: true, opacity: 1.0, depthWrite: false, blending: THREE.AdditiveBlending });
+    const points = new THREE.Points(geo, mat);
+
+    if (type === 'active') activePoints = points;
+    if (type === 'starlink') starlinkPoints = points;
+    if (type === 'debris') debrisPoints = points;
+
+    scene.add(points);
+}
+
+function getEcefPosition(satrec, timeMs, gmst) {
+    let posEci;
+    if (satrec.isMock) {
+        const t = timeMs / 1000;
+        const n = satrec.meanMotion * (2 * Math.PI) / 86400;
+        const m = satrec.nu + n * t;
+        const r = satrec.a;
+        const x1 = r * Math.cos(m);
+        const y1 = r * Math.sin(m);
+        const y2 = y1 * Math.cos(satrec.i);
+        const z2 = y1 * Math.sin(satrec.i);
+        const x3 = x1 * Math.cos(satrec.raan) - y2 * Math.sin(satrec.raan);
+        const y3 = x1 * Math.sin(satrec.raan) + y2 * Math.cos(satrec.raan);
+        posEci = { x: x3, y: y3, z: z2 };
+    } else {
+        const pv = satellite.propagate(satrec, new Date(timeMs));
+        posEci = pv.position;
+    }
+
+    if (!posEci || isNaN(posEci.x)) return null;
+
+    const cosG = Math.cos(gmst);
+    const sinG = Math.sin(gmst);
+    const xEcf = posEci.x * cosG + posEci.y * sinG;
+    const yEcf = -posEci.x * sinG + posEci.y * cosG;
+    const zEcf = posEci.z;
+
+    return { x: xEcf * SCALE, y: zEcf * SCALE, z: -yEcf * SCALE };
+}
+
+function updateSatellitePositions(satDataList, pointSystem, highlightSouthern, baseColor, gmst) {
+    const positions = pointSystem.geometry.attributes.position.array;
+    const colors = pointSystem.geometry.attributes.color.array;
+
+    for (let i = 0; i < satDataList.length; i++) {
+        const pos = getEcefPosition(satDataList[i].satrec, simulatedTime.getTime(), gmst);
+        if (!pos) {
+            positions[i*3] = 0; positions[i*3+1] = 0; positions[i*3+2] = 0;
+            continue;
         }
 
         function buildParticleSystem(satData, hexColor, size, type) {
@@ -618,98 +615,150 @@
             pointSystem.geometry.attributes.color.needsUpdate = true;
         }
 
-        function onWindowResize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        camera.position.lerp(targetPos, 0.03);
+        currentLookAt.lerp(targetLook, 0.03);
+        camera.lookAt(currentLookAt);
+    } else {
+        controls.update();
+    }
+
+    const radarActive = currentStep >= 3;
+    if (activePoints) { activePoints.visible = currentFilter === 'all'; updateSatellitePositions(allSatellites.active, activePoints, radarActive, COLOR_ACTIVE, gmst); }
+    if (starlinkPoints) { starlinkPoints.visible = currentFilter === 'all' || currentFilter === 'starlink'; updateSatellitePositions(allSatellites.starlink, starlinkPoints, radarActive, COLOR_STARLINK, gmst); }
+    if (debrisPoints) { debrisPoints.visible = currentFilter === 'all' || currentFilter === 'debris'; updateSatellitePositions(allSatellites.debris, debrisPoints, radarActive, COLOR_DEBRIS, gmst); }
+
+    updateTrails(now, gmst);
+    renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+const steps = document.querySelectorAll('.step');
+const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            steps.forEach(s => s.classList.remove('active'));
+            entry.target.classList.add('active');
+            currentStep = parseInt(entry.target.id.split('-')[1], 10);
         }
+    });
+}, { threshold: 0.5 });
+steps.forEach(step => observer.observe(step));
 
-        // --- 5. INTERACTION & UI ---
-        const steps = document.querySelectorAll('.step');
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    steps.forEach(s => s.classList.remove('active'));
-                    entry.target.classList.add('active');
-                    currentStep = parseInt(entry.target.id.split('-')[1]);
-                }
-            });
-        }, { threshold: 0.5 });
-
-        steps.forEach(step => observer.observe(step));
-
-        window.addEventListener('scroll', () => {
+let isScrolling = false;
+window.addEventListener('scroll', () => {
+    if (!isScrolling) {
+        window.requestAnimationFrame(() => {
             const scrollPx = document.documentElement.scrollTop;
             const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
             const progress = totalHeight > 0 ? (scrollPx / totalHeight) * 100 : 0;
             document.getElementById('progress-bar').style.width = `${progress}%`;
+            isScrolling = false;
         });
+        isScrolling = true;
+    }
+});
 
-        // Dashboard Logic
-        const enterBtn = document.getElementById('enter-dash-btn');
-        const exitBtn = document.getElementById('exit-dash-btn');
-        const body = document.body;
+const enterBtn = document.getElementById('enter-dash-btn');
+const exitBtn = document.getElementById('exit-dash-btn');
+enterBtn.addEventListener('click', () => {
+    stopDashboardFeeds();
+    isDashboard = true;
+    document.body.classList.add('dashboard-active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    controls.enabled = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
+    startDashboardFeeds();
+});
 
-        enterBtn.addEventListener('click', () => {
-            stopDashboardFeeds();
-            isDashboard = true;
-            body.classList.add('dashboard-active');
-            window.scrollTo({ top: 0, behavior: 'smooth' }); 
-            startDashboardFeeds();
-        });
+exitBtn.addEventListener('click', () => {
+    isDashboard = false;
+    document.body.classList.remove('dashboard-active');
+    controls.enabled = false;
+    controls.autoRotate = false;
+    stopDashboardFeeds();
+    document.getElementById('step-3').scrollIntoView();
+});
 
-        exitBtn.addEventListener('click', () => {
-            stopDashboardFeeds();
-            isDashboard = false;
-            body.classList.remove('dashboard-active');
-            document.getElementById('step-4').scrollIntoView();
-        });
+const speedSlider = document.getElementById('speed-slider');
+const speedVal = document.getElementById('speed-val');
+speedSlider.addEventListener('input', (e) => {
+    timeMultiplier = parseInt(e.target.value, 10);
+    speedVal.textContent = `${timeMultiplier}x`;
+});
 
-        function startDashboardFeeds() {
-            if (!clockIntervalId) {
-                clockIntervalId = setInterval(() => {
-                    document.getElementById('clock').innerText = simulatedTime.toISOString().split('T')[1].split('.')[0] + ' UTC';
-                }, 1000);
-            }
+const trailSlider = document.getElementById('trail-slider');
+const trailVal = document.getElementById('trail-val');
+trailSlider.addEventListener('input', (e) => {
+    trailLengthMins = parseInt(e.target.value, 10);
+    trailVal.textContent = `${trailLengthMins}m`;
+    if (trailLengthMins === 0 && trailsMesh) trailsMesh.visible = false;
+});
 
-            if (!feedIntervalId) {
-                feedIntervalId = setInterval(() => {
-                    if (!body.classList.contains('dashboard-active') || parsedSatNames.length === 0) return;
+const playPauseBtn = document.getElementById('play-pause-btn');
+playPauseBtn.addEventListener('click', () => {
+    controls.autoRotate = !controls.autoRotate;
+    playPauseBtn.textContent = controls.autoRotate ? '⏸️' : '▶️';
+});
 
-                    const feed = document.getElementById('data-feed');
-                    const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
-                    const isDanger = Math.random() > 0.8;
+const resetTimeBtn = document.getElementById('reset-time-btn');
+resetTimeBtn.addEventListener('click', () => {
+    simulatedTime = new Date();
+    if (timeMultiplier === 0) {
+        timeMultiplier = 60;
+        speedSlider.value = 60;
+        speedVal.textContent = '60x';
+    }
+});
 
-                    const el = document.createElement('div');
-                    const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
+document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentFilter = e.target.dataset.filter;
+    });
+});
 
-                    if (isDanger) {
-                        el.innerHTML = `<span class="text-red-400">[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field</span>`;
-                    } else {
-                        el.innerHTML = `[${timeStr}] WA RADAR PING: ${randomSat} orbital track updated`;
-                    }
+function startDashboardFeeds() {
+    window.dashboardIntervals.push(setInterval(() => {
+        const parts = simulatedTime.toISOString().split('T');
+        document.getElementById('clock').textContent = `${parts[1].split('.')[0]} UTC`;
+        document.getElementById('clock-date').textContent = parts[0];
+    }, 250));
 
-                    feed.appendChild(el);
-                    if(feed.children.length > 8) feed.removeChild(feed.firstChild);
-                }, 2000);
-            }
-        }
+    window.dashboardIntervals.push(setInterval(() => {
+        if (parsedSatNames.length === 0 || timeMultiplier === 0) return;
 
-        function stopDashboardFeeds() {
-            if (clockIntervalId) {
-                clearInterval(clockIntervalId);
-                clockIntervalId = null;
-            }
-            if (feedIntervalId) {
-                clearInterval(feedIntervalId);
-                feedIntervalId = null;
-            }
-        }
+        const feed = document.getElementById('data-feed');
+        const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
+        const isDanger = Math.random() > 0.85;
+        const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
 
-        // Start
-        init3D();
-        animate();
+        const el = document.createElement('div');
+        el.className = isDanger ? 'text-red-400 font-bold' : 'text-gray-300';
+        el.textContent = isDanger
+            ? `[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field`
+            : `[${timeStr}] RADAR PING: ${randomSat} tracked over Southern Ocean`;
 
-    </script>
+        feed.appendChild(el);
+        if (feed.children.length > 8) feed.removeChild(feed.firstChild);
+    }, 1500));
+}
+
+function stopDashboardFeeds() {
+    if (window.dashboardIntervals) {
+        window.dashboardIntervals.forEach(clearInterval);
+        window.dashboardIntervals = [];
+    }
+}
+
+init3D();
+animate();
+</script>
 </body>
 </html>
