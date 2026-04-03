@@ -1,1006 +1,1313 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Southern Sentinel | Australia's Role in SSA</title>
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Playfair+Display:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            --space-bg: #03060a;
-            --accent-blue: #00e5ff;
-            --accent-red: #ff3333;
-            --radar-green: #00ff88;
-            --glass-bg: rgba(6, 11, 18, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.08);
-        }
-        body, html {
-            margin: 0; padding: 0;
-            background-color: var(--space-bg);
-            color: #f3f4f6;
-            font-family: 'Inter', sans-serif;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-        h1, h2 { font-family: 'Playfair Display', serif; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Southern Sentinel | Real-time Satellite Tracker</title>
 
-        /* Fullscreen Canvas */
-        #canvas-container { 
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-            z-index: 0; pointer-events: none; 
-        }
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-        /* Cinematic Loader */
-        #loader {
-            position: fixed; inset: 0; background-color: var(--space-bg);
-            z-index: 9999; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s;
-        }
-        .spinner {
-            width: 48px; height: 48px; border: 2px solid rgba(0, 229, 255, 0.15);
-            border-radius: 50%; border-top-color: var(--accent-blue);
-            animation: spin 1s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite; margin-bottom: 24px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/controls/OrbitControls": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+    window.THREE = THREE;
+    window.OrbitControls = OrbitControls;
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
 
-        /* Scrollytelling Layer */
-        #story-layer { position: relative; z-index: 10; transition: opacity 0.5s ease; }
-        .step {
-            min-height: 100vh; display: flex; align-items: center;
-            justify-content: flex-start; padding: 2rem 5vw; pointer-events: none;
-        }
-        @media (min-width: 768px) { .step { padding: 2rem 10vw; } }
+  <style>
+    :root {
+      --bg: #03070d;
+      --panel: rgba(7, 12, 18, 0.84);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #e8edf3;
+      --muted: #8f9ba8;
+      --blue: #7dd3fc;
+      --orange: #ffb84d;
+      --purple: #8b5cf6;
+      --green: #34d399;
+      --gray: #a3a3a3;
+      --danger: #ff5b5b;
+    }
 
-        .content-box {
-            max-width: 520px; background: var(--glass-bg);
-            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-left: 4px solid var(--accent-blue); padding: 2.5rem;
-            pointer-events: auto; opacity: 0; transform: translateY(40px);
-            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-            box-shadow: 0 24px 48px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-            border-radius: 0 8px 8px 0;
-        }
-        .step.active .content-box { opacity: 1; transform: translateY(0); }
+    .text-white\/70 { color: rgba(255, 255, 255, 0.7); }
+    * { box-sizing: border-box; }
 
-        /* UI Overlays */
-        .glass-panel {
-            background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--glass-border); border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5); pointer-events: auto;
-        }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #0b1220 0%, #04080f 45%, #02050a 100%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
 
-        /* Dashboard UI Layer */
-        #dashboard-layer {
-            position: fixed; inset: 0; z-index: 20; pointer-events: none; 
-            opacity: 0; visibility: hidden; transition: opacity 0.6s ease, visibility 0.6s;
-        }
-        .dashboard-active #dashboard-layer { opacity: 1; visibility: visible; }
-        .dashboard-active #canvas-container { pointer-events: auto; }
-        .dashboard-active #story-layer { opacity: 0; pointer-events: none; }
+    button, input { font: inherit; }
+    #canvas-container { position: fixed; inset: 0; z-index: 0; background: transparent; }
 
-        /* Floating Panel Layouts */
-        #dash-header { position: fixed; top: 1.5rem; left: 1.5rem; right: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
-        #dash-left { position: fixed; top: 6rem; left: 1.5rem; width: 280px; }
-        #dash-right { position: fixed; top: 6rem; right: 1.5rem; width: 320px; display: none; }
-        @media (min-width: 1024px) { #dash-right { display: flex; flex-direction: column; } }
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      background: rgba(2, 5, 10, 0.96);
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
 
-        /* Bottom Controls */
-        #bottom-controls {
-            position: fixed; bottom: 1.5rem; left: 50%; transform: translate(-50%, 150%);
-            transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-            width: 90%; max-width: 800px;
-        }
-        .dashboard-active #bottom-controls { transform: translate(-50%, 0); }
+    .loader-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      border-top-color: var(--blue);
+      animation: spin 0.9s linear infinite;
+    }
 
-        /* Buttons & Interactions */
-        .filter-btn {
-            background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #9ca3af;
-            padding: 8px 16px; border-radius: 8px; font-size: 12px; cursor: pointer;
-            transition: all 0.2s ease; white-space: nowrap; user-select: none;
-        }
-        .filter-btn.active, .filter-btn:hover {
-            border-color: var(--accent-blue); color: var(--accent-blue); background: rgba(0, 229, 255, 0.05);
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.1);
-        }
-        .icon-btn {
-            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); color: #fff;
-            width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; transition: all 0.2s ease; user-select: none;
-        }
-        .icon-btn:hover { background: rgba(255,255,255,0.1); border-color: var(--accent-blue); }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* UX-Optimized Range Slider */
-        input[type=range] {
-            -webkit-appearance: none; width: 100px; background: transparent; height: 24px; cursor: pointer;
-        }
-        input[type=range]:focus { outline: none; }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
-            background: var(--accent-blue); margin-top: -6px; box-shadow: 0 0 10px rgba(0,229,255,0.5);
-            transition: transform 0.1s;
-        }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;
-        }
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
 
-        #progress-bar { position: fixed; top: 0; left: 0; height: 3px; background: var(--accent-blue); width: 0%; z-index: 100; }
-        
-        .color-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
-        .blinking-dot { width: 8px; height: 8px; background-color: var(--radar-green); border-radius: 50%; display: inline-block; animation: blink 1.5s infinite ease-in-out; }
-        @keyframes blink { 0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--radar-green); } 50% { opacity: 0.3; box-shadow: none; } }
+    .panel {
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
 
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-    </style>
+    #intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(to bottom, rgba(2, 5, 10, 0.88), rgba(2, 5, 10, 0.58), rgba(2, 5, 10, 0.88));
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+      pointer-events: auto;
+    }
+
+    #intro-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .intro-box {
+      width: min(720px, calc(100vw - 32px));
+      text-align: center;
+      padding: 28px 24px;
+      border-radius: 24px;
+      background: rgba(5, 9, 15, 0.66);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .hud-top {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .brand-box,
+    .clock-box,
+    .stats-panel,
+    .control-bar,
+    #side-sheet { border-radius: 18px; }
+
+    .brand-box { padding: 14px 16px; max-width: min(460px, calc(100vw - 150px)); }
+    .clock-box { padding: 14px 16px; text-align: right; min-width: 160px; }
+
+    .hud-bottom {
+      position: fixed;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .control-bar {
+      padding: 14px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px 18px;
+    }
+
+    .stats-panel { padding: 14px 16px; min-width: 320px; max-width: 360px; }
+    .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .pill {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .pill:hover,
+    .pill.active,
+    .ghost-btn:hover,
+    .ghost-btn.active {
+      color: var(--text);
+      border-color: rgba(125, 211, 252, 0.5);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .ghost-btn {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .tiny { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .range-wrap { display: flex; align-items: center; gap: 10px; min-width: 140px; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 110px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.12);
+      cursor: pointer;
+    }
+
+    #side-sheet {
+      position: fixed;
+      right: 18px;
+      top: 92px;
+      width: min(360px, calc(100vw - 36px));
+      max-height: calc(100vh - 240px);
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .feed-item {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: #d5dde6;
+    }
+
+    .feed-item:last-child { border-bottom: none; }
+    .danger { color: var(--danger); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+
+    .category-list { display: grid; gap: 8px; margin-top: 10px; }
+    .category-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #d8e1ea;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .category-row:last-child { border-bottom: none; }
+    .stale-warn { margin-top: 6px; font-size: 11px; color: var(--danger); }
+    .desktop-only { display: block; }
+
+    @media (max-width: 1100px) {
+      #side-sheet { display: none; }
+      .hud-bottom { grid-template-columns: 1fr; }
+      .stats-panel { min-width: 0; max-width: none; }
+    }
+
+    @media (max-width: 640px) {
+      .hud-top { flex-direction: column; align-items: stretch; }
+      .brand-box, .clock-box { max-width: none; min-width: 0; }
+      .clock-box { text-align: left; }
+      .control-bar { gap: 12px; }
+    }
+  </style>
 </head>
-<body class="antialiased">
+<body>
+  <div id="loader">
+    <div class="loader-ring"></div>
+    <div id="loading-status" style="font-size:13px; color: var(--muted);">Loading live orbital data...</div>
+  </div>
 
-    <!-- Loading Screen -->
-    <div id="loader" role="status" aria-live="polite">
-        <div class="spinner"></div>
-        <h2 class="mono text-xl text-cyan-400 mb-2 font-semibold">INITIALIZING WEBGL ENGINE</h2>
-        <p id="loading-status" class="mono text-xs text-gray-500 uppercase tracking-widest">Connecting to CelesTrak Orbit Data...</p>
+  <div id="canvas-container"></div>
+
+  <div id="intro-overlay">
+    <div class="intro-box">
+      <div class="tiny" style="margin-bottom:10px; color: var(--blue);">Southern Sentinel</div>
+      <h1 style="margin:0; font-size: clamp(32px, 7vw, 64px); font-weight: 600; letter-spacing: -0.04em;">Real-time satellite tracking.</h1>
+      <p style="margin:16px auto 0; max-width: 620px; color: var(--muted); font-size: 15px; line-height: 1.7;">
+        A cleaner operational view of Australia's orbital environment, with category counts, ground-site markers, and a live globe tracker.
+      </p>
+      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:22px;">
+        <button id="enter-btn" class="ghost-btn" style="padding: 12px 18px; border-radius: 999px;">Enter</button>
+        <div class="tiny" style="display:flex; align-items:center; gap:12px; text-transform:none; letter-spacing:0;">
+          <span>Scroll to zoom</span>
+          <span>Drag to orbit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ui-layer">
+    <div class="hud-top">
+      <div class="panel brand-box" id="brand-box">
+        <div class="tiny" style="color: var(--blue); margin-bottom: 6px;">Southern Sentinel</div>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.03em;">Australia's live SSA view</div>
+        <div style="margin-top: 6px; font-size: 13px; color: var(--muted); line-height: 1.55;">
+          Active total is kept separate from rendered-object count. Starlink is counted from its dedicated feed, while other groups are counted from the active catalog.
+        </div>
+      </div>
+
+      <div class="panel clock-box">
+        <div id="clock" style="font-size: 18px; font-weight: 600;">00:00:00 UTC</div>
+        <div id="clock-date" class="tiny" style="margin-top: 4px;">YYYY-MM-DD</div>
+      </div>
     </div>
 
-    <div id="progress-bar"></div>
-    <div id="canvas-container"></div>
+    <aside id="side-sheet" class="panel desktop-only">
+      <div class="tiny" style="margin-bottom: 10px;">Category coverage</div>
+      <div style="font-size: 13px; line-height: 1.7; color: var(--muted);">
+        This view breaks the active catalog into practical groups for quick inspection, while keeping debris separate.
+      </div>
+      <div style="margin-top: 16px; display:grid; gap:8px; font-size:12px; color:#d8e1ea;">
+        <div><span class="legend-dot" style="background:#7dd3fc;"></span> Other satellites</div>
+        <div><span class="legend-dot" style="background:#ffb84d;"></span> Starlink</div>
+        <div><span class="legend-dot" style="background:#8b5cf6;"></span> OneWeb</div>
+        <div><span class="legend-dot" style="background:#34d399;"></span> GPS and GNSS</div>
+        <div><span class="legend-dot" style="background:#a3a3a3;"></span> Debris</div>
+      </div>
 
-    <!-- NARRATIVE LAYER -->
-    <div id="story-layer">
-        <div class="step active" id="step-0">
-            <div class="content-box">
-                <p class="text-cyan-400 mono text-[10px] mb-3 tracking-widest uppercase font-semibold">Visual Investigation</p>
-                <h1 class="text-4xl md:text-5xl mb-6 font-bold leading-tight text-white">The Southern Sentinel</h1>
-                <p class="text-gray-300 text-base leading-relaxed mb-6">
-                    Space is increasingly congested. Over 35,000 trackable objects are hurtling around Earth at 28,000 km/h. Yet, for decades, humanity has been watching the skies with one eye closed.
-                </p>
-                <div class="mono text-[10px] text-gray-500 animate-bounce mt-8 uppercase tracking-widest">Scroll to initiate sequence &darr;</div>
-            </div>
+      <div style="margin-top: 16px;" class="tiny">Live counts</div>
+      <div class="category-list">
+        <div class="category-row"><span>Starlink</span><span id="count-starlink">0</span></div>
+        <div class="category-row"><span>OneWeb</span><span id="count-oneweb">0</span></div>
+        <div class="category-row"><span>GPS/GNSS</span><span id="count-gnss">0</span></div>
+        <div class="category-row"><span>Other</span><span id="count-other">0</span></div>
+        <div class="category-row"><span>Debris</span><span id="count-debris-side">0</span></div>
+      </div>
+
+      <div style="margin-top: 18px;" class="tiny">Ground sites</div>
+      <div style="margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7;">
+        Ground objects are defined in a <code>GROUND_SITES</code> array using latitude, longitude, label, and colour.
+      </div>
+
+      <div style="margin-top: 18px;" class="tiny">Live feed</div>
+      <div id="data-feed" style="margin-top: 8px;"></div>
+    </aside>
+
+    <div class="hud-bottom">
+      <div class="panel control-bar">
+        <button id="play-pause-btn" class="ghost-btn">Pause</button>
+        <button id="reset-time-btn" class="ghost-btn">Reset</button>
+        <button id="ground-toggle-btn" class="ghost-btn active">Ground sites</button>
+
+        <div class="pill-group" id="filter-controls">
+          <button class="pill active" data-filter="0"><span id="filter-label-all">All</span></button>
+          <button class="pill" data-filter="2"><span id="filter-label-starlink">Starlink</span></button>
+          <button class="pill" data-filter="1"><span id="filter-label-other">Other</span></button>
+          <button class="pill" data-filter="4"><span id="filter-label-oneweb">OneWeb</span></button>
+          <button class="pill" data-filter="5"><span id="filter-label-gnss">GPS/GNSS</span></button>
+          <button class="pill" data-filter="3"><span id="filter-label-debris">Debris</span></button>
         </div>
 
-        <div class="step" id="step-1">
-            <div class="content-box ml-auto rounded-l-lg rounded-r-none border-l-0 border-r-4" style="border-right-color: var(--accent-red);">
-                <h2 class="text-2xl font-bold mb-4 text-red-400">The Data Void</h2>
-                <p class="text-gray-300 text-base leading-relaxed mb-4">
-                    Historically, Space Situational Awareness (SSA) infrastructure was concentrated in the Northern Hemisphere—built by the US, Europe, and Russia. 
-                </p>
-                <p class="text-gray-300 text-base leading-relaxed">
-                    This left a massive blind spot over the Southern Hemisphere. Satellites and lethal debris would disappear from radar as they crossed the equator, leaving operators guessing their exact trajectories.
-                </p>
-            </div>
+        <div class="range-wrap">
+          <span class="tiny">Speed</span>
+          <input type="range" id="speed-slider" min="0" max="300" value="100" />
+          <span id="speed-val" style="font-size:12px; min-width:36px; color: var(--blue);">100x</span>
         </div>
 
-        <div class="step" id="step-2">
-            <div class="content-box">
-                <h2 class="text-2xl font-bold mb-4 text-white">Australia's Advantage</h2>
-                <p class="text-gray-300 text-base leading-relaxed mb-4">
-                    To prevent cascading orbital collisions (the Kessler Syndrome), continuous tracking is required. Australia's vast landmass provides the perfect anchor for the Southern Hemisphere.
-                </p>
-                <p class="text-gray-300 text-base leading-relaxed">
-                    By placing advanced phased-array radars in locations like Western Australia and the Northern Territory, the blind spot is finally illuminated.
-                </p>
-            </div>
+        <div class="range-wrap">
+          <span class="tiny">Trail</span>
+          <input type="range" id="trail-slider" min="0" max="600" step="30" value="300" />
+          <span id="trail-val" style="font-size:12px; min-width:44px; color: var(--blue);">300s</span>
         </div>
+      </div>
 
-        <div class="step" id="step-3">
-            <div class="content-box">
-                <h2 class="text-2xl font-bold mb-4 text-green-400 flex items-center gap-3">
-                    <span class="blinking-dot"></span> Radar Active
-                </h2>
-                <p class="text-gray-300 text-base leading-relaxed mb-4">
-                    Commercial SSA networks now blanket the southern skies. These radars are sensitive enough to detect objects as small as a golf ball in Low Earth Orbit (LEO).
-                </p>
-                <p class="text-gray-300 text-base leading-relaxed border-l-2 border-red-500 pl-4 ml-1 italic">
-                    Notice objects turning <span class="text-red-400 font-bold not-italic">red</span> as they pass into the southern hemisphere—representing active tracking by radar.
-                </p>
-            </div>
+      <div class="panel stats-panel">
+        <div class="tiny">Current catalog</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="tiny">Active total</div>
+            <div id="metric-total" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--blue);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Starlink</div>
+            <div id="metric-starlink" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--orange);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Other</div>
+            <div id="metric-other" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--blue);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">OneWeb</div>
+            <div id="metric-oneweb" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--purple);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">GPS/GNSS</div>
+            <div id="metric-gnss" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--green);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Ground sites</div>
+            <div id="metric-ground" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--green);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Debris</div>
+            <div id="metric-debris" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: #cbd5e1;">0</div>
+          </div>
         </div>
-
-        <div class="step" id="step-4">
-            <div class="content-box text-center border-l-0 border-t-4 mx-auto rounded-lg">
-                <h2 class="text-2xl font-bold mb-4 text-white">Explore the Data</h2>
-                <p class="text-gray-400 text-sm leading-relaxed mb-8">
-                    Transition to the live operational dashboard to view the current orbital environment. Apply filters and render historical flight paths using GPU propagation.
-                </p>
-                <button id="enter-dash-btn" class="mono bg-cyan-900/40 hover:bg-cyan-600 text-cyan-50 border border-cyan-400 px-8 py-3 rounded transition-all uppercase tracking-widest text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-cyan-400">
-                    Access Live Telemetry
-                </button>
-            </div>
-        </div>
-        <div style="height: 20vh;"></div> 
+      </div>
     </div>
+  </div>
 
-    <!-- DASHBOARD LAYER -->
-    <div id="dashboard-layer">
-        
-        <header id="dash-header" class="glass-panel px-6 py-4">
-            <div>
-                <h1 class="mono text-lg font-bold text-cyan-400 tracking-tighter flex items-baseline gap-2">
-                    AUS-SSA <span class="text-[10px] text-gray-500 font-normal tracking-widest hidden sm:inline">OPERATIONAL VIEW</span>
-                </h1>
-            </div>
-            <div class="text-right mono">
-                <div id="clock" class="text-base font-semibold text-white">00:00:00 UTC</div>
-                <div id="clock-date" class="text-[9px] text-gray-400 tracking-wider">YYYY-MM-DD</div>
-            </div>
-        </header>
+  <script>
+    window.addEventListener('three-ready', initApp);
 
-        <aside id="dash-left" class="glass-panel p-5 flex flex-col gap-6">
-            <div>
-                <h3 class="mono text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">System Status</h3>
-                <div class="flex items-center gap-3 mb-2 mono text-xs">
-                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></div> 
-                    <span class="text-gray-300">WA RADAR:</span> <span class="text-green-400 ml-auto">ONLINE</span>
-                </div>
-                <div class="flex items-center gap-3 mb-4 mono text-xs">
-                    <div class="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]"></div> 
-                    <span class="text-gray-300">NT RADAR:</span> <span class="text-green-400 ml-auto">ONLINE</span>
-                </div>
-            </div>
+    function initApp() {
+      function safeSetText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      }
 
-            <div>
-                <h3 class="mono text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-3">Live Metrics</h3>
-                <div class="grid grid-cols-2 gap-3 mono">
-                    <div class="bg-black/40 p-3 rounded border border-white/5">
-                        <div class="text-gray-500 text-[8px] tracking-wider mb-1">TOTAL OBJ</div>
-                        <div id="metric-total" class="text-cyan-400 text-xl font-bold">0</div>
-                    </div>
-                    <div class="bg-black/40 p-3 rounded border border-white/5">
-                        <div class="text-gray-500 text-[8px] tracking-wider mb-1">DEBRIS</div>
-                        <div id="metric-debris" class="text-gray-400 text-xl font-bold">0</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mono text-[9px] space-y-2 text-gray-400 bg-black/40 p-3 rounded border border-white/5">
-                <div class="flex items-center"><span class="color-dot bg-[#00e5ff] shadow-[0_0_5px_#00e5ff]"></span> Active Satellites</div>
-                <div class="flex items-center"><span class="color-dot bg-[#ffaa00] shadow-[0_0_5px_#ffaa00]"></span> Starlink Constellation</div>
-                <div class="flex items-center"><span class="color-dot bg-[#888888]"></span> Space Debris (Sample)</div>
-            </div>
+      function safeSetHtml(id, html) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+      }
 
-            <button id="exit-dash-btn" class="mono w-full bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded px-4 py-2.5 text-[10px] font-semibold tracking-wider transition-colors mt-auto focus:outline-none">
-                &larr; RETURN TO BRIEFING
-            </button>
-        </aside>
+      function splitTleLines(tleText) {
+        const normalized = String(tleText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        return normalized.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+      }
 
-        <aside id="dash-right" class="glass-panel p-5 h-96">
-            <h3 class="mono text-[10px] font-semibold text-gray-400 uppercase tracking-widest border-b border-white/10 pb-3 mb-3">Southern Hemisphere Feed</h3>
-            <div id="data-feed" class="flex-grow overflow-y-auto custom-scrollbar mono text-[9px] space-y-3 text-gray-400 flex flex-col justify-end pr-2">
-            </div>
-        </aside>
-        
-        <div id="bottom-controls" class="glass-panel px-6 py-3 flex flex-wrap items-center justify-between sm:justify-center gap-4 sm:gap-8">
-            <div class="flex items-center gap-2">
-                <button id="play-pause-btn" class="icon-btn" aria-label="Play/Pause Rotation">⏸️</button>
-                <button id="reset-time-btn" class="icon-btn" aria-label="Reset Time to Live">🔄</button>
-            </div>
+      function countTleObjects(tleText) {
+        return Math.floor(splitTleLines(tleText).length / 3);
+      }
 
-            <div class="w-px h-8 bg-white/10 hidden sm:block"></div>
+      const TYPE_INFO = {
+        1.0: { label: 'Other', color: [0.49, 0.83, 0.99], size: 2.5 },
+        2.0: { label: 'Starlink', color: [1.0, 0.72, 0.3], size: 3.1 },
+        3.0: { label: 'Debris', color: [0.64, 0.64, 0.64], size: 1.7 },
+        4.0: { label: 'OneWeb', color: [0.545, 0.361, 0.965], size: 3.0 },
+        5.0: { label: 'GPS/GNSS', color: [0.204, 0.827, 0.6], size: 2.9 }
+      };
 
-            <div class="flex items-center gap-3 mono">
-                <label for="speed-slider" class="text-[9px] text-gray-400 font-semibold tracking-wider">SPEED</label>
-                <input type="range" id="speed-slider" min="0" max="300" value="60" aria-label="Simulation Speed">
-                <span id="speed-val" class="text-[10px] text-cyan-400 font-bold w-8 text-right">60x</span>
-            </div>
-            
-            <div class="w-px h-8 bg-white/10 hidden md:block"></div>
-            
-            <div class="flex items-center gap-3 mono w-full sm:w-auto mt-2 sm:mt-0">
-                <label for="trail-slider" class="text-[9px] text-gray-400 font-semibold tracking-wider">TRAILS</label>
-                <input type="range" id="trail-slider" min="0" max="90" step="15" value="0" class="flex-grow sm:w-auto" aria-label="Trail Length">
-                <span id="trail-val" class="text-[10px] text-cyan-400 font-bold w-8 text-right">0m</span>
-            </div>
+      const GROUND_SITES = [
+        { label: 'Exmouth Radar', lat: -21.94, lon: 114.13, color: 0x34d399 },
+        { label: 'Learmonth', lat: -22.24, lon: 114.10, color: 0x2dd4bf },
+        { label: 'Alice Springs', lat: -23.70, lon: 133.88, color: 0x60a5fa },
+        { label: 'Woomera', lat: -31.20, lon: 136.82, color: 0xfacc15 },
+        { label: 'Geraldton', lat: -28.78, lon: 114.61, color: 0xf97316 },
+        { label: 'Canberra DSN', lat: -35.40, lon: 148.98, color: 0xf472b6 }
+      ];
 
-            <div class="w-px h-8 bg-white/10 hidden lg:block"></div>
+      const R_EARTH = 5;
 
-            <div class="flex gap-2 mono hidden lg:flex" id="filter-controls">
-                <button class="filter-btn active" data-filter="0">All Objects</button>
-                <button class="filter-btn" data-filter="2">Starlink</button>
-                <button class="filter-btn" data-filter="3">Debris</button>
-            </div>
-        </div>
+      function classifySatelliteType(name) {
+        const upper = String(name || '').toUpperCase();
+        if (upper.includes('STARLINK')) return 2.0;
+        if (upper.includes('ONEWEB')) return 4.0;
+        if (upper.includes('GPS') || upper.includes('NAVSTAR') || upper.includes('GLONASS') || upper.includes('GALILEO') || upper.includes('BEIDOU') || upper.includes('QZS') || upper.includes('IRNSS')) return 5.0;
+        return 1.0;
+      }
 
-    </div>
+      function latLonToVector3(lat, lon, radius) {
+        const latRad = lat * (Math.PI / 180);
+        const lonRad = lon * (Math.PI / 180);
+        return new THREE.Vector3(
+          radius * Math.cos(latRad) * Math.cos(lonRad),
+          radius * Math.sin(latRad),
+          -radius * Math.cos(latRad) * Math.sin(lonRad)
+        );
+      }
 
-    <script>
-        // --- SAFE DOM TEXT UPDATER ---
-        function safeSetText(id, text) {
-            const el = document.getElementById(id);
-            if (el) el.textContent = text;
+      function updateFilterCounts(counts) {
+        safeSetHtml('filter-label-all', `All <span class="text-white/70">${(counts.active + counts.debris).toLocaleString()}</span>`);
+        safeSetHtml('filter-label-other', `Other <span class="text-white/70">${counts.other.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-starlink', `Starlink <span class="text-white/70">${counts.starlink.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-oneweb', `OneWeb <span class="text-white/70">${counts.oneweb.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-gnss', `GPS/GNSS <span class="text-white/70">${counts.gnss.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-debris', `Debris <span class="text-white/70">${counts.debris.toLocaleString()}</span>`);
+      }
+
+      function checkEpochStaleness(satData) {
+        const ages = satData.map((sd) => {
+          if (!sd.rec || !sd.rec.jdsatepoch) return null;
+          const nowJd = 2451545.0 + (Date.now() / 86400000 - 10957.5);
+          return nowJd - sd.rec.jdsatepoch;
+        }).filter((a) => a !== null);
+        if (!ages.length) return;
+        const maxAge = Math.max(...ages);
+        if (maxAge > 7) {
+          const box = document.getElementById('brand-box');
+          if (box && !box.querySelector('.stale-warn')) {
+            const warn = document.createElement('div');
+            warn.className = 'stale-warn';
+            warn.textContent = `Warning: some TLEs are up to ${Math.round(maxAge)}d old - positions may drift.`;
+            box.appendChild(warn);
+          }
+        }
+      }
+
+      function runTests() {
+        function assert(condition, label) {
+          if (!condition) throw new Error('Test failed: ' + label);
         }
 
-        // --- 1. SHADERS (GPU ORBIT PROPAGATION) ---
-        const orbitVertexShader = `
-            attribute float a; 
-            attribute float e; 
-            attribute float i; 
-            attribute float raan; 
-            attribute float argp; 
-            attribute float mStart; 
-            attribute float n; 
-            attribute vec3 customColor;
-            attribute float typeFilter;
-            attribute float size;
+        assert(JSON.stringify(splitTleLines('A\nB\nC')) === JSON.stringify(['A', 'B', 'C']), 'splitTleLines LF');
+        assert(JSON.stringify(splitTleLines('A\r\nB\r\nC')) === JSON.stringify(['A', 'B', 'C']), 'splitTleLines CRLF');
+        assert(JSON.stringify(splitTleLines(' A \n\n B ')) === JSON.stringify(['A', 'B']), 'splitTleLines trim blanks');
+        assert(countTleObjects('A\n1\n2\nB\n1\n2') === 2, 'countTleObjects');
+        assert(classifySatelliteType('STARLINK-1000') === 2.0, 'classify Starlink');
+        assert(classifySatelliteType('ONEWEB-0010') === 4.0, 'classify OneWeb');
+        assert(classifySatelliteType('GPS BIIR-2') === 5.0, 'classify GNSS');
+        assert(classifySatelliteType('ISS (ZARYA)') === 1.0, 'classify Other');
+        const p0 = latLonToVector3(0, 0, 1);
+        assert(Math.abs(p0.x - 1) < 1e-6, 'lon 0 maps to positive x');
+        assert(Array.isArray(GROUND_SITES) && GROUND_SITES.length > 0, 'ground sites exist');
 
-            uniform float uTimeMins;
-            uniform float uGmst;
-            uniform float uRadarActive;
-            uniform float uActiveFilter;
+        const mockActive = [
+          'STARLINK-1',
+          '1 00001U 00001A   24067.54791667  .00002717  00000+0  10270-3 0  9998',
+          '2 00001  53.0000 164.6878 0001200  27.8462 106.2930 15.05500000000000',
+          'ONEWEB-1',
+          '1 00002U 00002A   24067.54791667  .00002117  00000+0  10270-3 0  9994',
+          '2 00002  87.9000 164.6878 0002100  27.8462 106.2930 13.30000000000000'
+        ].join('\n');
+        assert(countTleObjects(mockActive) === 2, 'countTleObjects active sample');
+      }
 
-            varying vec3 vColor;
+      const orbitVertexShader = `
+        attribute float a;
+        attribute float e;
+        attribute float i;
+        attribute float raan;
+        attribute float argp;
+        attribute float mStart;
+        attribute float n;
+        attribute vec3 customColor;
+        attribute float typeFilter;
+        attribute float size;
 
-            void main() {
-                if (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1) {
-                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0); 
-                    return;
-                }
+        uniform float uTimeMins;
+        uniform float uGmst;
+        uniform float uActiveFilter;
 
-                float TWO_PI = 6.28318530718;
-                float M = mod(mStart + n * uTimeMins, TWO_PI);
+        varying vec3 vColor;
 
-                // Unrolled Kepler Equation for WebGL cross-device compatibility
-                float E = M;
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
+        void main() {
+          if (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            gl_PointSize = 0.0;
+            return;
+          }
 
-                // Orbital plane coordinates
-                float sinE = sin(E);
-                float cosE = cos(E);
-                float px = a * (cosE - e);
-                float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
+          float TWO_PI = 6.28318530718;
+          float M = mod(mStart + n * uTimeMins, TWO_PI);
 
-                // Rotations (Perigee, Inclination, RAAN)
-                float cx = px * cos(argp) - py * sin(argp);
-                float cy = px * sin(argp) + py * cos(argp);
+          float E = M;
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
 
-                float x2 = cx;
-                float y2 = cy * cos(i);
-                float z2 = cy * sin(i);
+          float sinE = sin(E);
+          float cosE = cos(E);
+          float px = a * (cosE - e);
+          float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
 
-                float x3 = x2 * cos(raan) - y2 * sin(raan);
-                float y3 = x2 * sin(raan) + y2 * cos(raan);
-                float z3 = z2;
+          float cx = px * cos(argp) - py * sin(argp);
+          float cy = px * sin(argp) + py * cos(argp);
 
-                // ECI to ECEF conversion
-                float cosG = cos(uGmst);
-                float sinG = sin(uGmst);
-                float xEcf = x3 * cosG + y3 * sinG;
-                float yEcf = -x3 * sinG + y3 * cosG;
-                float zEcf = z3;
+          float x2 = cx;
+          float y2 = cy * cos(i);
+          float z2 = cy * sin(i);
 
-                // THE HOLY GRAIL UNIFIED MAPPING
-                // Maps standard ECEF perfectly to the native, un-rotated Three.js SphereGeometry
-                // We use (-y, z, x) to align mathematical East to the 3D engine's texture wrapping.
-                vec3 finalPos = vec3(-yEcf * 5.0, zEcf * 5.0, xEcf * 5.0);
+          float x3 = x2 * cos(raan) - y2 * sin(raan);
+          float y3 = x2 * sin(raan) + y2 * cos(raan);
+          float z3 = z2;
 
-                // Highlight Red if over Southern Hemisphere & Radar is active
-                vColor = customColor;
-                if (uRadarActive > 0.5 && finalPos.y < 0.0) {
-                    vColor = vec3(1.0, 0.2, 0.2); 
-                }
+          float cosG = cos(uGmst);
+          float sinG = sin(uGmst);
+          float xEcf = x3 * cosG + y3 * sinG;
+          float yEcf = -x3 * sinG + y3 * cosG;
+          float zEcf = z3;
 
-                vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
-                
-                // Crisp size attenuation
-                gl_PointSize = size * (20.0 / max(-mvPosition.z, 1.0));
-                gl_Position = projectionMatrix * mvPosition;
-            }
-        `;
+          vec3 finalPos = vec3(xEcf * 5.0, zEcf * 5.0, -yEcf * 5.0);
+          vColor = customColor;
 
-        // Creates sharp, crisp circles
-        const pointFragmentShader = `
-            varying vec3 vColor;
-            void main() {
-                vec2 pt = gl_PointCoord - vec2(0.5);
-                float r = dot(pt, pt);
-                if (r > 0.25) discard; 
-                
-                float alpha = smoothstep(0.25, 0.20, r);
-                gl_FragColor = vec4(vColor, alpha);
-            }
-        `;
+          vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+          gl_PointSize = size * (18.0 / max(-mvPosition.z, 1.0));
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `;
 
-        // Shader for orbital history trails
-        const trailVertexShader = `
-            attribute float a; attribute float e; attribute float i;
-            attribute float raan; attribute float argp; attribute float mStart;
-            attribute float n; attribute vec3 customColor;
-            attribute float typeFilter; attribute float timeOffsetNorm;
+      const pointFragmentShader = `
+        varying vec3 vColor;
+        void main() {
+          vec2 pt = gl_PointCoord - vec2(0.5);
+          float r = dot(pt, pt);
+          if (r > 0.25) discard;
+          float alpha = smoothstep(0.25, 0.08, r);
+          gl_FragColor = vec4(vColor, alpha);
+        }
+      `;
 
-            uniform float uTimeMins; uniform float uGmst;
-            uniform float uRadarActive; uniform float uActiveFilter;
-            uniform float uTrailLengthMins;
+      const trailVertexShader = `
+        attribute float a;
+        attribute float e;
+        attribute float i;
+        attribute float raan;
+        attribute float argp;
+        attribute float mStart;
+        attribute float n;
+        attribute vec3 customColor;
+        attribute float typeFilter;
+        attribute float timeOffsetNorm;
 
-            varying vec3 vColor;
-            varying float vAlpha;
+        uniform float uTimeMins;
+        uniform float uGmst;
+        uniform float uActiveFilter;
+        uniform float uTrailLengthMins;
 
-            void main() {
-                if (uTrailLengthMins <= 0.0 || (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1)) {
-                    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-                    return;
-                }
+        varying vec3 vColor;
+        varying float vAlpha;
 
-                float TWO_PI = 6.28318530718;
-                float histTimeMins = uTimeMins - (timeOffsetNorm * uTrailLengthMins);
-                float M = mod(mStart + n * histTimeMins, TWO_PI); 
+        void main() {
+          if (uTrailLengthMins <= 0.0 || (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1)) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            return;
+          }
 
-                float E = M;
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
-                E = E - (E - e * sin(E) - M) / (1.0 - e * cos(E));
+          float TWO_PI = 6.28318530718;
+          float histTimeMins = uTimeMins - (timeOffsetNorm * uTrailLengthMins);
+          float M = mod(mStart + n * histTimeMins, TWO_PI);
 
-                float sinE = sin(E); float cosE = cos(E);
-                float px = a * (cosE - e); float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
+          float E = M;
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
 
-                float cx = px * cos(argp) - py * sin(argp);
-                float cy = px * sin(argp) + py * cos(argp);
+          float sinE = sin(E);
+          float cosE = cos(E);
+          float px = a * (cosE - e);
+          float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
 
-                float x2 = cx; float y2 = cy * cos(i); float z2 = cy * sin(i);
-                float x3 = x2 * cos(raan) - y2 * sin(raan); float y3 = x2 * sin(raan) + y2 * cos(raan); float z3 = z2;
+          float cx = px * cos(argp) - py * sin(argp);
+          float cy = px * sin(argp) + py * cos(argp);
 
-                float histGmst = uGmst - (timeOffsetNorm * uTrailLengthMins) * (6.28318530718 / 1436.068);
-                float cosG = cos(histGmst); float sinG = sin(histGmst);
-                
-                float xEcf = x3 * cosG + y3 * sinG;
-                float yEcf = -x3 * sinG + y3 * cosG;
-                float zEcf = z3;
+          float x2 = cx;
+          float y2 = cy * cos(i);
+          float z2 = cy * sin(i);
 
-                // Match unified mapping (-y, z, x)
-                vec3 finalPos = vec3(-yEcf * 5.0, zEcf * 5.0, xEcf * 5.0);
+          float x3 = x2 * cos(raan) - y2 * sin(raan);
+          float y3 = x2 * sin(raan) + y2 * cos(raan);
+          float z3 = z2;
 
-                vColor = customColor;
-                if (uRadarActive > 0.5 && finalPos.y < 0.0) { vColor = vec3(1.0, 0.2, 0.2); }
-                
-                vAlpha = (1.0 - timeOffsetNorm) * 0.4;
+          float histGmst = uGmst - (timeOffsetNorm * uTrailLengthMins) * (6.28318530718 / 1436.068);
+          float cosG = cos(histGmst);
+          float sinG = sin(histGmst);
+          float xEcf = x3 * cosG + y3 * sinG;
+          float yEcf = -x3 * sinG + y3 * cosG;
+          float zEcf = z3;
 
-                vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
-                gl_Position = projectionMatrix * mvPosition;
-            }
-        `;
+          vec3 finalPos = vec3(xEcf * 5.0, zEcf * 5.0, -yEcf * 5.0);
+          vColor = customColor;
+          vAlpha = (1.0 - timeOffsetNorm) * 0.2;
 
-        const trailFragmentShader = `
-            varying vec3 vColor; varying float vAlpha;
-            void main() { gl_FragColor = vec4(vColor, vAlpha); }
-        `;
+          vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `;
 
-        // --- 2. GLOBALS & SETUP ---
-        if (window.animationId) cancelAnimationFrame(window.animationId);
-        if (window.dashboardIntervals) window.dashboardIntervals.forEach(clearInterval);
+      const trailFragmentShader = `
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          gl_FragColor = vec4(vColor, vAlpha);
+        }
+      `;
+
+      if (window.animationId) cancelAnimationFrame(window.animationId);
+      if (window.dashboardIntervals) window.dashboardIntervals.forEach(clearInterval);
+      if (window.southernSentinelResizeHandler) {
+        window.removeEventListener('resize', window.southernSentinelResizeHandler);
+      }
+      window.dashboardIntervals = [];
+
+      const container = document.getElementById('canvas-container');
+      let scene, camera, renderer, earth, controls;
+      let pointsMesh, trailsMesh, pointsMaterial, trailsMaterial;
+      let groundSitesGroup;
+      let allSatData = [];
+      let feedObjects = [];
+      let simulatedTime = new Date();
+      let simStartTimeMs = simulatedTime.getTime();
+      let lastTime = performance.now();
+      let timeMultiplier = 100;
+      let currentFilter = 0;
+      let simulationPaused = false;
+      let groundSitesVisible = true;
+
+      async function fetchLiveSpaceData() {
+        safeSetText('loading-status', 'Fetching live catalog...');
+        try {
+          const [activeRes, debrisRes, starlinkRes] = await Promise.all([
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'),
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle'),
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle')
+          ]);
+
+          if (!activeRes.ok || !debrisRes.ok) throw new Error('Failed to fetch TLE data');
+
+          const [activeData, debrisData, starlinkData] = await Promise.all([
+            activeRes.text(),
+            debrisRes.text(),
+            starlinkRes.ok ? starlinkRes.text() : Promise.resolve('')
+          ]);
+
+          parseAndCategorizeTLEs(activeData, debrisData, starlinkData);
+          finishLoading();
+        } catch (error) {
+          console.warn('Using fallback data', error);
+          generateFallbackData();
+          finishLoading();
+        }
+      }
+
+      function setCounts(counts) {
+        safeSetText('count-starlink', counts.starlink.toLocaleString());
+        safeSetText('count-oneweb', counts.oneweb.toLocaleString());
+        safeSetText('count-gnss', counts.gnss.toLocaleString());
+        safeSetText('count-other', counts.other.toLocaleString());
+        safeSetText('count-debris-side', counts.debris.toLocaleString());
+
+        updateFilterCounts({
+          active: counts.active,
+          other: counts.other,
+          starlink: counts.starlink,
+          oneweb: counts.oneweb,
+          gnss: counts.gnss,
+          debris: counts.debris
+        });
+
+        safeSetText('metric-total', counts.active.toLocaleString());
+        safeSetText('metric-starlink', counts.starlink.toLocaleString());
+        safeSetText('metric-other', counts.other.toLocaleString());
+        safeSetText('metric-oneweb', counts.oneweb.toLocaleString());
+        safeSetText('metric-gnss', counts.gnss.toLocaleString());
+        safeSetText('metric-ground', GROUND_SITES.length.toLocaleString());
+        safeSetText('metric-debris', counts.debris.toLocaleString());
+      }
+
+      function buildCatalogFromTle(activeData, debrisData, nowDate) {
+        const satData = [];
+        const feed = [];
+        const activeLines = splitTleLines(activeData);
+        const debrisLines = splitTleLines(debrisData);
+
+        let starlinkCount = 0;
+        let onewebCount = 0;
+        let gnssCount = 0;
+        let otherCount = 0;
+        let debrisCount = 0;
+
+        const maxRenderedActive = 12000;
+        const maxRenderedDebris = 5000;
+
+        const jdStart = satellite.jday(
+          nowDate.getUTCFullYear(),
+          nowDate.getUTCMonth() + 1,
+          nowDate.getUTCDate(),
+          nowDate.getUTCHours(),
+          nowDate.getUTCMinutes(),
+          nowDate.getUTCSeconds()
+        );
+
+        let renderedActive = 0;
+        for (let i = 0; i < activeLines.length; i += 3) {
+          if (!activeLines[i + 1] || !activeLines[i + 2]) continue;
+          const name = activeLines[i];
+          const rec = satellite.twoline2satrec(activeLines[i + 1], activeLines[i + 2]);
+          if (!rec || !rec.a) continue;
+
+          let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
+          mStart = ((mStart % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+          const type = classifySatelliteType(name);
+          if (type === 2.0) starlinkCount += 1;
+          else if (type === 4.0) onewebCount += 1;
+          else if (type === 5.0) gnssCount += 1;
+          else otherCount += 1;
+
+          const info = TYPE_INFO[type];
+          feed.push({ name, label: info.label });
+
+          if (renderedActive < maxRenderedActive) {
+            satData.push({ rec, name, type, color: info.color, size: info.size, mStart });
+            renderedActive += 1;
+          }
+        }
+
+        let renderedDebris = 0;
+        for (let i = 0; i < debrisLines.length; i += 3) {
+          if (!debrisLines[i + 1] || !debrisLines[i + 2]) continue;
+          const name = debrisLines[i];
+          const rec = satellite.twoline2satrec(debrisLines[i + 1], debrisLines[i + 2]);
+          if (!rec || !rec.a) continue;
+
+          let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
+          mStart = ((mStart % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+          debrisCount += 1;
+          feed.push({ name, label: TYPE_INFO[3.0].label });
+
+          if (renderedDebris < maxRenderedDebris) {
+            satData.push({ rec, name, type: 3.0, color: TYPE_INFO[3.0].color, size: TYPE_INFO[3.0].size, mStart });
+            renderedDebris += 1;
+          }
+        }
+
+        return { satData, feed, starlinkCount, onewebCount, gnssCount, otherCount, debrisCount };
+      }
+
+      function parseAndCategorizeTLEs(activeData, debrisData, starlinkData = '') {
+        const catalog = buildCatalogFromTle(activeData, debrisData, simulatedTime);
+        allSatData = catalog.satData;
+        feedObjects = catalog.feed;
+
+        const activeTotal = countTleObjects(activeData);
+        const starlinkCount = starlinkData ? countTleObjects(starlinkData) : catalog.starlinkCount;
+        setCounts({
+          active: activeTotal,
+          starlink: starlinkCount,
+          oneweb: catalog.onewebCount,
+          gnss: catalog.gnssCount,
+          other: catalog.otherCount,
+          debris: catalog.debrisCount
+        });
+      }
+
+      function generateFallbackData() {
+        allSatData = [];
+        feedObjects = [];
+
+        const counts = { active: 15562, starlink: 10500, oneweb: 650, gnss: 180, other: 4232, debris: 750 };
+        const dist = [
+          { type: 2.0, n: 6700, aRange: [1.082, 1.092], inclo: () => 0.925 + (Math.random() - 0.5) * 0.2 },
+          { type: 1.0, n: 2300, aRange: [1.08, 1.35], inclo: () => Math.random() * Math.PI },
+          { type: 4.0, n: 420, aRange: [1.20, 1.22], inclo: () => 0.961 + (Math.random() - 0.5) * 0.05 },
+          { type: 5.0, n: 180, aRange: [3.48, 3.52], inclo: () => 0.96 + (Math.random() - 0.5) * 0.3 },
+          { type: 3.0, n: 400, aRange: [1.06, 1.50], inclo: () => Math.random() * Math.PI }
+        ];
+
+        dist.forEach(({ type, n, aRange, inclo }) => {
+          const info = TYPE_INFO[type];
+          for (let i = 0; i < n; i += 1) {
+            const name = `${info.label.toUpperCase().replace(/\s+/g, '-')}-${allSatData.length}`;
+            allSatData.push({
+              name,
+              type,
+              color: info.color,
+              size: info.size,
+              mStart: Math.random() * Math.PI * 2,
+              rec: {
+                a: aRange[0] + Math.random() * (aRange[1] - aRange[0]),
+                ecco: Math.random() * 0.01,
+                inclo: inclo(),
+                nodeo: Math.random() * Math.PI * 2,
+                argpo: Math.random() * Math.PI * 2,
+                no_kozai: type === 5.0 ? 0.0145 : (0.04 + Math.random() * 0.05),
+                jdsatepoch: null
+              }
+            });
+            feedObjects.push({ name, label: info.label });
+          }
+        });
+
+        setCounts(counts);
+      }
+
+      function finishLoading() {
+        buildGPUGeometry();
+        checkEpochStaleness(allSatData);
+        const loader = document.getElementById('loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          loader.style.visibility = 'hidden';
+          setTimeout(() => { loader.style.display = 'none'; }, 700);
+        }
+      }
+
+      function buildGroundSites() {
+        if (!earth) return;
+        if (groundSitesGroup) earth.remove(groundSitesGroup);
+
+        groundSitesGroup = new THREE.Group();
+        GROUND_SITES.forEach((site) => {
+          const siteGroup = new THREE.Group();
+          const pos = latLonToVector3(site.lat, site.lon, R_EARTH + 0.035);
+          siteGroup.position.copy(pos);
+          siteGroup.lookAt(pos.clone().multiplyScalar(2.0));
+
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.09, 0.17, 32),
+            new THREE.MeshBasicMaterial({ color: site.color, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+          );
+          ring.position.z = 0.001;
+          siteGroup.add(ring);
+
+          const core = new THREE.Mesh(
+            new THREE.CircleGeometry(0.05, 20),
+            new THREE.MeshBasicMaterial({ color: site.color, transparent: true, opacity: 1.0, side: THREE.DoubleSide })
+          );
+          core.position.z = 0.002;
+          siteGroup.add(core);
+
+          groundSitesGroup.add(siteGroup);
+        });
+
+        groundSitesGroup.visible = groundSitesVisible;
+        earth.add(groundSitesGroup);
+      }
+
+      function makeProceduralEarth() {
+        const size = 1024;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const ocean = ctx.createLinearGradient(0, 0, 0, size);
+        ocean.addColorStop(0, '#0a1628');
+        ocean.addColorStop(0.5, '#0d2240');
+        ocean.addColorStop(1, '#0a1628');
+        ctx.fillStyle = ocean;
+        ctx.fillRect(0, 0, size, size);
+
+        const land = [
+          [0.18, 0.30, 0.13, 0.28], [0.32, 0.28, 0.08, 0.22], [0.50, 0.32, 0.10, 0.18],
+          [0.60, 0.38, 0.14, 0.24], [0.72, 0.45, 0.08, 0.14], [0.15, 0.60, 0.20, 0.20],
+          [0.55, 0.62, 0.16, 0.16], [0.30, 0.72, 0.06, 0.10]
+        ];
+
+        land.forEach(([cx, cy, rx, ry]) => {
+          const g = ctx.createRadialGradient(cx * size, cy * size, 0, cx * size, cy * size, rx * size);
+          g.addColorStop(0, 'rgba(34,85,54,0.9)');
+          g.addColorStop(0.6, 'rgba(28,70,44,0.6)');
+          g.addColorStop(1, 'rgba(20,55,34,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.ellipse(cx * size, cy * size, rx * size, ry * size, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        [0, size].forEach((y) => {
+          const g = ctx.createRadialGradient(size / 2, y, 0, size / 2, y, size * 0.18);
+          g.addColorStop(0, 'rgba(220,235,255,0.92)');
+          g.addColorStop(1, 'rgba(180,210,255,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, size, size);
+        });
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function buildEarth() {
+        earth = new THREE.Group();
+        const earthMat = new THREE.MeshPhongMaterial({ color: 0x0c1a29, shininess: 10, specular: 0x15293f });
+        const applyTexture = (t) => { earthMat.map = t; earthMat.color.setHex(0xffffff); earthMat.needsUpdate = true; };
+        applyTexture(makeProceduralEarth());
+
+        const texLoader = new THREE.TextureLoader();
+        texLoader.setCrossOrigin('anonymous');
+        const urls = [
+          'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+          'https://cdn.jsdelivr.net/npm/three-globe@2/example/img/earth-blue-marble.jpg'
+        ];
+
+        const tryNext = (idx) => {
+          if (idx >= urls.length) return;
+          texLoader.load(urls[idx], applyTexture, undefined, () => tryNext(idx + 1));
+        };
+        tryNext(0);
+
+        earth.add(new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 96, 96), earthMat));
+        earth.add(new THREE.Mesh(
+          new THREE.SphereGeometry(R_EARTH * 1.025, 96, 96),
+          new THREE.MeshBasicMaterial({ color: 0x66ccff, transparent: true, opacity: 0.12, side: THREE.BackSide, blending: THREE.AdditiveBlending })
+        ));
+        scene.add(earth);
+      }
+
+      function buildPointGeometry() {
+        const count = allSatData.length;
+        const geo = new THREE.BufferGeometry();
+        const posArr = new Float32Array(count * 3);
+        const aArr = new Float32Array(count);
+        const eArr = new Float32Array(count);
+        const iArr = new Float32Array(count);
+        const raanArr = new Float32Array(count);
+        const argpArr = new Float32Array(count);
+        const mArr = new Float32Array(count);
+        const nArr = new Float32Array(count);
+        const colArr = new Float32Array(count * 3);
+        const typeArr = new Float32Array(count);
+        const sizeArr = new Float32Array(count);
+
+        for (let i = 0; i < count; i += 1) {
+          const { rec, color, type, size, mStart } = allSatData[i];
+          aArr[i] = rec.a || 1.1;
+          eArr[i] = rec.ecco || 0;
+          iArr[i] = rec.inclo || 0;
+          raanArr[i] = rec.nodeo || 0;
+          argpArr[i] = rec.argpo || 0;
+          mArr[i] = mStart || 0;
+          nArr[i] = rec.no_kozai || 0;
+          colArr[i * 3] = color[0];
+          colArr[i * 3 + 1] = color[1];
+          colArr[i * 3 + 2] = color[2];
+          typeArr[i] = type;
+          sizeArr[i] = size;
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        geo.setAttribute('a', new THREE.BufferAttribute(aArr, 1));
+        geo.setAttribute('e', new THREE.BufferAttribute(eArr, 1));
+        geo.setAttribute('i', new THREE.BufferAttribute(iArr, 1));
+        geo.setAttribute('raan', new THREE.BufferAttribute(raanArr, 1));
+        geo.setAttribute('argp', new THREE.BufferAttribute(argpArr, 1));
+        geo.setAttribute('mStart', new THREE.BufferAttribute(mArr, 1));
+        geo.setAttribute('n', new THREE.BufferAttribute(nArr, 1));
+        geo.setAttribute('customColor', new THREE.BufferAttribute(colArr, 3));
+        geo.setAttribute('typeFilter', new THREE.BufferAttribute(typeArr, 1));
+        geo.setAttribute('size', new THREE.BufferAttribute(sizeArr, 1));
+        return geo;
+      }
+
+      function buildTrailGeometry(filter) {
+        const source = filter === 0 ? allSatData : allSatData.filter((sd) => sd.type === filter);
+        const trailCount = source.length;
+        const segments = trailCount > 12000 ? 10 : trailCount > 8000 ? 12 : trailCount > 4000 ? 16 : 24;
+        const tCount = trailCount * segments * 2;
+        const geo = new THREE.BufferGeometry();
+
+        const tPosArr = new Float32Array(tCount * 3);
+        const ta = new Float32Array(tCount);
+        const te = new Float32Array(tCount);
+        const ti = new Float32Array(tCount);
+        const traan = new Float32Array(tCount);
+        const targp = new Float32Array(tCount);
+        const tm = new Float32Array(tCount);
+        const tn = new Float32Array(tCount);
+        const tCol = new Float32Array(tCount * 3);
+        const tType = new Float32Array(tCount);
+        const tOff = new Float32Array(tCount);
+
+        let idx = 0;
+        for (let i = 0; i < trailCount; i += 1) {
+          const { rec, color, type, mStart } = source[i];
+          for (let j = 0; j < segments; j += 1) {
+            const off1 = j / segments;
+            const off2 = (j + 1) / segments;
+            [off1, off2].forEach((off) => {
+              ta[idx] = rec.a || 1.1;
+              te[idx] = rec.ecco || 0;
+              ti[idx] = rec.inclo || 0;
+              traan[idx] = rec.nodeo || 0;
+              targp[idx] = rec.argpo || 0;
+              tm[idx] = mStart || 0;
+              tn[idx] = rec.no_kozai || 0;
+              tCol[idx * 3] = color[0];
+              tCol[idx * 3 + 1] = color[1];
+              tCol[idx * 3 + 2] = color[2];
+              tType[idx] = type;
+              tOff[idx] = off;
+              idx += 1;
+            });
+          }
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(tPosArr, 3));
+        geo.setAttribute('a', new THREE.BufferAttribute(ta, 1));
+        geo.setAttribute('e', new THREE.BufferAttribute(te, 1));
+        geo.setAttribute('i', new THREE.BufferAttribute(ti, 1));
+        geo.setAttribute('raan', new THREE.BufferAttribute(traan, 1));
+        geo.setAttribute('argp', new THREE.BufferAttribute(targp, 1));
+        geo.setAttribute('mStart', new THREE.BufferAttribute(tm, 1));
+        geo.setAttribute('n', new THREE.BufferAttribute(tn, 1));
+        geo.setAttribute('customColor', new THREE.BufferAttribute(tCol, 3));
+        geo.setAttribute('typeFilter', new THREE.BufferAttribute(tType, 1));
+        geo.setAttribute('timeOffsetNorm', new THREE.BufferAttribute(tOff, 1));
+        return geo;
+      }
+
+      function rebuildTrailMesh() {
+        if (!scene || !trailsMaterial) return;
+        if (trailsMesh) {
+          scene.remove(trailsMesh);
+          trailsMesh.geometry.dispose();
+        }
+        trailsMesh = new THREE.LineSegments(buildTrailGeometry(currentFilter), trailsMaterial);
+        trailsMesh.frustumCulled = false;
+        scene.add(trailsMesh);
+      }
+
+      function buildGPUGeometry() {
+        if (pointsMesh) {
+          scene.remove(pointsMesh);
+          pointsMesh.geometry.dispose();
+          pointsMesh.material.dispose();
+        }
+        if (trailsMesh) {
+          scene.remove(trailsMesh);
+          trailsMesh.geometry.dispose();
+          trailsMesh.material.dispose();
+        }
+
+        const sharedUniforms = {
+          uTimeMins: { value: 0 },
+          uGmst: { value: 0 },
+          uActiveFilter: { value: 0 }
+        };
+
+        pointsMaterial = new THREE.ShaderMaterial({
+          uniforms: sharedUniforms,
+          vertexShader: orbitVertexShader,
+          fragmentShader: pointFragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        pointsMesh = new THREE.Points(buildPointGeometry(), pointsMaterial);
+        pointsMesh.frustumCulled = false;
+        scene.add(pointsMesh);
+
+        trailsMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            uTimeMins: sharedUniforms.uTimeMins,
+            uGmst: sharedUniforms.uGmst,
+            uActiveFilter: sharedUniforms.uActiveFilter,
+            uTrailLengthMins: { value: 5 }
+          },
+          vertexShader: trailVertexShader,
+          fragmentShader: trailFragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        rebuildTrailMesh();
+      }
+
+      function init3D() {
+        if (renderer) renderer.dispose();
+        container.innerHTML = '';
+
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x02050a, 0.03);
+
+        camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 6.8, 15.5);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        controls = new window.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enablePan = false;
+        controls.minDistance = 7;
+        controls.maxDistance = 40;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.35;
+
+        scene.add(new THREE.AmbientLight(0x7a8ca5, 0.45));
+        const key = new THREE.DirectionalLight(0xffffff, 1.35);
+        key.position.set(12, 6, 10);
+        scene.add(key);
+        const rim = new THREE.DirectionalLight(0x60a5fa, 0.8);
+        rim.position.set(-8, -4, -10);
+        scene.add(rim);
+
+        buildEarth();
+        buildGroundSites();
+
+        window.southernSentinelResizeHandler = onWindowResize;
+        window.addEventListener('resize', window.southernSentinelResizeHandler);
+        fetchLiveSpaceData();
+      }
+
+      function animate(now = performance.now()) {
+        window.animationId = requestAnimationFrame(animate);
+        const deltaReal = Math.min(now - lastTime, 50);
+        lastTime = now;
+
+        if (!simulationPaused) {
+          simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * timeMultiplier));
+        }
+
+        const gmst = satellite.gstime(simulatedTime);
+        const elapsedMins = (simulatedTime.getTime() - simStartTimeMs) / 60000;
+
+        if (pointsMaterial) {
+          pointsMaterial.uniforms.uTimeMins.value = elapsedMins;
+          pointsMaterial.uniforms.uGmst.value = gmst;
+          pointsMaterial.uniforms.uActiveFilter.value = currentFilter;
+        }
+
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        if (!camera || !renderer) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function startDashboardFeeds() {
+        stopDashboardFeeds();
+        window.dashboardIntervals.push(setInterval(() => {
+          const parts = simulatedTime.toISOString().split('T');
+          safeSetText('clock', `${parts[1].split('.')[0]} UTC`);
+          safeSetText('clock-date', parts[0]);
+        }, 100));
+
+        window.dashboardIntervals.push(setInterval(() => {
+          if (!feedObjects.length || simulationPaused) return;
+          const feed = document.getElementById('data-feed');
+          if (!feed) return;
+
+          const sat = feedObjects[Math.floor(Math.random() * feedObjects.length)];
+          const timeStr = simulatedTime.toISOString().split('T')[1].slice(0, 8);
+          const danger = Math.random() > 0.85;
+          const item = document.createElement('div');
+          item.className = `feed-item${danger ? ' danger' : ''}`;
+          item.textContent = danger ? `[${timeStr}] ${sat.label} alert: ${sat.name}` : `[${timeStr}] ${sat.label} track: ${sat.name}`;
+          feed.prepend(item);
+          while (feed.children.length > 7) feed.removeChild(feed.lastChild);
+        }, 1800));
+      }
+
+      function stopDashboardFeeds() {
+        window.dashboardIntervals.forEach(clearInterval);
         window.dashboardIntervals = [];
+      }
 
-        let simStartTimeMs = Date.now();
-        let lastTime = Date.now(); 
-        
-        const container = document.getElementById('canvas-container');
-        let scene, camera, renderer, earth, controls;
-        let pointsMesh, trailsMesh;
-        let pointsMaterial, trailsMaterial;
-        
-        let allSatData = [];
-        let parsedSatNames = []; 
-        let simulatedTime = new Date();
-        let timeMultiplier = 60; 
-        
-        const R_EARTH = 5; 
-        let currentStep = 0;
-        let isDashboard = false;
-        let currentFilter = 0; 
-        let currentLookAt = new THREE.Vector3(0,0,0);
+      document.getElementById('enter-btn')?.addEventListener('click', () => {
+        document.getElementById('intro-overlay')?.classList.add('hidden');
+      });
 
-        // --- 3. DATA FETCHING ---
-        async function fetchLiveSpaceData() {
-            safeSetText('loading-status', "Fetching Live Catalog...");
-            try {
-                const activeRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle');
-                if (!activeRes.ok) throw new Error("API Limit");
-                const activeData = await activeRes.text();
-                
-                const debrisRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle');
-                if (!debrisRes.ok) throw new Error("API Limit");
-                const debrisData = await debrisRes.text();
+      document.getElementById('speed-slider')?.addEventListener('input', (e) => {
+        timeMultiplier = Number(e.target.value);
+        safeSetText('speed-val', `${timeMultiplier}x`);
+      });
 
-                safeSetText('loading-status', "Processing GPU Orbital Mechanics...");
-                parseAndCategorizeTLEs(activeData, debrisData);
-                finishLoading();
-            } catch (err) {
-                console.warn("Live fetch failed, generating fallback data.", err);
-                safeSetText('loading-status', "Using offline simulation data...");
-                generateFallbackData();
-                finishLoading();
-            }
-        }
+      document.getElementById('trail-slider')?.addEventListener('input', (e) => {
+        const seconds = Number(e.target.value);
+        safeSetText('trail-val', `${seconds}s`);
+        if (trailsMaterial) trailsMaterial.uniforms.uTrailLengthMins.value = seconds / 60;
+      });
 
-        function parseAndCategorizeTLEs(activeData, debrisData) {
-            const activeLines = activeData.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            const debrisLines = debrisData.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-            
-            let aCount = 0, sCount = 0, dCount = 0;
-            const jdStart = satellite.jday(simulatedTime.getUTCFullYear(), simulatedTime.getUTCMonth() + 1, simulatedTime.getUTCDate(), simulatedTime.getUTCHours(), simulatedTime.getUTCMinutes(), simulatedTime.getUTCSeconds());
+      document.getElementById('play-pause-btn')?.addEventListener('click', (e) => {
+        simulationPaused = !simulationPaused;
+        if (controls) controls.autoRotate = !simulationPaused;
+        e.currentTarget.textContent = simulationPaused ? 'Play' : 'Pause';
+      });
 
-            for (let i = 0; i < activeLines.length; i += 3) {
-                // Buffer limits
-                if (aCount > 2500 && sCount > 1500) break;
-                if (activeLines[i+1] && activeLines[i+2]) {
-                    const name = activeLines[i];
-                    const rec = satellite.twoline2satrec(activeLines[i+1], activeLines[i+2]);
-                    if (rec && rec.a) {
-                        let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
-                        mStart = mStart % (2 * Math.PI);
-                        if (mStart < 0) mStart += 2 * Math.PI;
+      document.getElementById('reset-time-btn')?.addEventListener('click', () => {
+        simulatedTime = new Date();
+        simStartTimeMs = simulatedTime.getTime();
+        simulationPaused = false;
+        if (controls) controls.autoRotate = true;
+        safeSetText('play-pause-btn', 'Pause');
+      });
 
-                        if (name.includes("STARLINK") && sCount < 1500) {
-                            allSatData.push({ rec, name, type: 2.0, color: [1.0, 0.66, 0.0], size: 4.0, mStart });
-                            sCount++;
-                        } else if (aCount < 2500) {
-                            allSatData.push({ rec, name, type: 1.0, color: [0.0, 0.9, 1.0], size: 3.5, mStart });
-                            aCount++;
-                        }
-                        parsedSatNames.push(name);
-                    }
-                }
-            }
+      document.getElementById('ground-toggle-btn')?.addEventListener('click', (e) => {
+        groundSitesVisible = !groundSitesVisible;
+        if (groundSitesGroup) groundSitesGroup.visible = groundSitesVisible;
+        e.currentTarget.classList.toggle('active', groundSitesVisible);
+      });
 
-            for (let i = 0; i < debrisLines.length && dCount < 1500; i += 3) {
-                if (debrisLines[i+1] && debrisLines[i+2]) {
-                    const name = debrisLines[i];
-                    const rec = satellite.twoline2satrec(debrisLines[i+1], debrisLines[i+2]);
-                    if (rec && rec.a) {
-                        let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
-                        mStart = mStart % (2 * Math.PI);
-                        if (mStart < 0) mStart += 2 * Math.PI;
-
-                        allSatData.push({ rec, name, type: 3.0, color: [0.6, 0.6, 0.6], size: 2.0, mStart });
-                        parsedSatNames.push(name);
-                        dCount++;
-                    }
-                }
-            }
-            
-            safeSetText('metric-total', (aCount + sCount).toLocaleString());
-            safeSetText('metric-debris', dCount.toLocaleString());
-        }
-
-        function generateFallbackData() {
-            for(let i=0; i<3000; i++) {
-                const isStarlink = i % 2 === 0;
-                allSatData.push({
-                    name: "SIM-SAT-" + i,
-                    type: isStarlink ? 2.0 : 1.0,
-                    color: isStarlink ? [1.0, 0.66, 0.0] : [0.0, 0.9, 1.0],
-                    size: isStarlink ? 4.0 : 3.5,
-                    mStart: Math.random() * Math.PI * 2,
-                    rec: { a: 1.1 + Math.random() * 0.2, ecco: 0.001, inclo: Math.random() * Math.PI, nodeo: Math.random() * Math.PI*2, argpo: 0, no_kozai: 0.06 }
-                });
-                parsedSatNames.push("SIM-SAT-" + i);
-            }
-            safeSetText('metric-total', "3,000");
-            safeSetText('metric-debris', "0");
-        }
-
-        function finishLoading() {
-            buildGPUGeometry();
-            const loader = document.getElementById('loader');
-            if (loader) {
-                loader.style.opacity = '0';
-                setTimeout(() => loader.style.display = 'none', 800);
-            }
-        }
-
-        // --- 4. THREE.JS GEOMETRY ---
-        function init3D() {
-            if (scene) { while(scene.children.length > 0){ scene.remove(scene.children[0]); } }
-            if (container) container.innerHTML = '';
-            
-            scene = new THREE.Scene();
-            scene.fog = new THREE.FogExp2(0x03060a, 0.025);
-
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 10, 25);
-            
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            if (container) container.appendChild(renderer.domElement);
-
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true; controls.dampingFactor = 0.05;
-            controls.enablePan = false; controls.minDistance = 6; controls.maxDistance = 40;
-            controls.enabled = false; controls.autoRotate = false;
-
-            scene.add(new THREE.AmbientLight(0x222222));
-            const camLight = new THREE.DirectionalLight(0xffffff, 1.5);
-            camLight.position.set(10, 10, 10);
-            camera.add(camLight);
-            scene.add(camera); 
-
-            buildEarth();
-            window.addEventListener('resize', onWindowResize);
-            fetchLiveSpaceData();
-        }
-
-        // THE HOLY GRAIL UNIFIED MATH MAPPING
-        // To align standard ECEF with Three.js texture wrapping:
-        // North is +Y, Prime Meridian (0,0) is +Z, and East is -X.
-        function latLonToVector3(lat, lon, radius) {
-            const phi = lat * (Math.PI / 180);
-            const theta = lon * (Math.PI / 180); 
-            
-            // Standard ECEF math
-            const xEcf = Math.cos(phi) * Math.cos(theta); // Prime Meridian component
-            const yEcf = Math.cos(phi) * Math.sin(theta); // East component
-            const zEcf = Math.sin(phi);                   // North component
-
-            // Unified mapping: (-East, North, Prime)
-            return new THREE.Vector3(-yEcf * radius, zEcf * radius, xEcf * radius);
-        }
-
-        function buildEarth() {
-            earth = new THREE.Group();
-
-            const earthMat = new THREE.MeshPhongMaterial({
-                color: 0x051525, 
-                emissive: 0x000000, shininess: 10
-            });
-
-            // Use texture loader with crossOrigin config to bypass strict canvas taint rules
-            const loader = new THREE.TextureLoader();
-            loader.setCrossOrigin("anonymous");
-            loader.load(
-                'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
-                (texture) => { 
-                    earthMat.color.setHex(0xffffff); 
-                    earthMat.map = texture; 
-                    earthMat.needsUpdate = true; 
-                }
-            );
-
-            // Pure SphereGeometry. By removing rotations, the texture center (0,0) sits at +Z.
-            const globe = new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 64, 64), earthMat);
-            earth.add(globe);
-
-            // Atmosphere Glow
-            const atmosMat = new THREE.MeshBasicMaterial({
-                color: 0x44aaff, transparent: true, opacity: 0.15,
-                side: THREE.BackSide, blending: THREE.AdditiveBlending
-            });
-            earth.add(new THREE.Mesh(new THREE.SphereGeometry(R_EARTH * 1.02, 64, 64), atmosMat));
-            scene.add(earth);
-            
-            // Reference Glow Marker for Australia (-25, 133)
-            const ausPos = latLonToVector3(-25, 133, R_EARTH + 0.02);
-            const ausMat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
-            const ausMarker = new THREE.Mesh(new THREE.CircleGeometry(1.5, 32), ausMat);
-            ausMarker.position.copy(ausPos);
-            ausMarker.lookAt(new THREE.Vector3(0,0,0));
-            earth.add(ausMarker);
-        }
-
-        function buildGPUGeometry() {
-            const count = allSatData.length;
-            const pGeo = new THREE.BufferGeometry();
-            
-            const posArr = new Float32Array(count * 3); 
-            const aArr = new Float32Array(count); const eArr = new Float32Array(count);
-            const iArr = new Float32Array(count); const raanArr = new Float32Array(count);
-            const argpArr = new Float32Array(count); const mArr = new Float32Array(count);
-            const nArr = new Float32Array(count); const colArr = new Float32Array(count * 3);
-            const typeArr = new Float32Array(count); const sizeArr = new Float32Array(count);
-
-            for(let i=0; i<count; i++) {
-                const sd = allSatData[i]; const r = sd.rec;
-                aArr[i] = r.a || 1.1; eArr[i] = r.ecco || 0; iArr[i] = r.inclo || 0; raanArr[i] = r.nodeo || 0; argpArr[i] = r.argpo || 0;
-                nArr[i] = r.no_kozai || 0; mArr[i] = sd.mStart || 0;
-                colArr[i*3] = sd.color[0]; colArr[i*3+1] = sd.color[1]; colArr[i*3+2] = sd.color[2];
-                typeArr[i] = sd.type; sizeArr[i] = sd.size;
-            }
-
-            pGeo.setAttribute('position', new THREE.BufferAttribute(posArr, 3)); 
-            pGeo.setAttribute('a', new THREE.BufferAttribute(aArr, 1));
-            pGeo.setAttribute('e', new THREE.BufferAttribute(eArr, 1));
-            pGeo.setAttribute('i', new THREE.BufferAttribute(iArr, 1));
-            pGeo.setAttribute('raan', new THREE.BufferAttribute(raanArr, 1));
-            pGeo.setAttribute('argp', new THREE.BufferAttribute(argpArr, 1));
-            pGeo.setAttribute('mStart', new THREE.BufferAttribute(mArr, 1));
-            pGeo.setAttribute('n', new THREE.BufferAttribute(nArr, 1));
-            pGeo.setAttribute('customColor', new THREE.BufferAttribute(colArr, 3));
-            pGeo.setAttribute('typeFilter', new THREE.BufferAttribute(typeArr, 1));
-            pGeo.setAttribute('size', new THREE.BufferAttribute(sizeArr, 1));
-            
-            const sharedUniforms = {
-                uTimeMins: { value: 0 }, uGmst: { value: 0 },
-                uRadarActive: { value: 0 }, uActiveFilter: { value: 0 },
-            };
-
-            pointsMaterial = new THREE.ShaderMaterial({
-                uniforms: sharedUniforms,
-                vertexShader: orbitVertexShader, fragmentShader: pointFragmentShader,
-                transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-            });
-
-            pointsMesh = new THREE.Points(pGeo, pointsMaterial);
-            pointsMesh.frustumCulled = false; 
-            scene.add(pointsMesh);
-
-            // --- BUILD TRAIL GEOMETRY ---
-            const maxTrails = Math.min(3000, count);
-            const segments = 25; 
-            const tCount = maxTrails * segments * 2;
-            const tGeo = new THREE.BufferGeometry();
-            
-            const tPosArr = new Float32Array(tCount * 3);
-            const ta = new Float32Array(tCount); const te = new Float32Array(tCount);
-            const ti = new Float32Array(tCount); const traan = new Float32Array(tCount);
-            const targp = new Float32Array(tCount); const tm = new Float32Array(tCount);
-            const tn = new Float32Array(tCount); const tCol = new Float32Array(tCount * 3);
-            const tType = new Float32Array(tCount); const tOff = new Float32Array(tCount);
-
-            let idx = 0;
-            for(let i=0; i<maxTrails; i++) {
-                const sd = allSatData[i]; const r = sd.rec;
-                for(let j=0; j<segments; j++) {
-                    const off1 = j / segments;
-                    const off2 = (j + 1) / segments;
-                    
-                    // Vertex 1
-                    ta[idx] = r.a || 1.1; te[idx] = r.ecco || 0; ti[idx] = r.inclo || 0; traan[idx] = r.nodeo || 0; targp[idx] = r.argpo || 0; tm[idx] = sd.mStart || 0; tn[idx] = r.no_kozai || 0;
-                    tCol[idx*3] = sd.color[0]; tCol[idx*3+1] = sd.color[1]; tCol[idx*3+2] = sd.color[2];
-                    tType[idx] = sd.type; tOff[idx] = off1; idx++;
-                    
-                    // Vertex 2
-                    ta[idx] = r.a || 1.1; te[idx] = r.ecco || 0; ti[idx] = r.inclo || 0; traan[idx] = r.nodeo || 0; targp[idx] = r.argpo || 0; tm[idx] = sd.mStart || 0; tn[idx] = r.no_kozai || 0;
-                    tCol[idx*3] = sd.color[0]; tCol[idx*3+1] = sd.color[1]; tCol[idx*3+2] = sd.color[2];
-                    tType[idx] = sd.type; tOff[idx] = off2; idx++;
-                }
-            }
-
-            tGeo.setAttribute('position', new THREE.BufferAttribute(tPosArr, 3)); 
-            tGeo.setAttribute('a', new THREE.BufferAttribute(ta, 1));
-            tGeo.setAttribute('e', new THREE.BufferAttribute(te, 1));
-            tGeo.setAttribute('i', new THREE.BufferAttribute(ti, 1));
-            tGeo.setAttribute('raan', new THREE.BufferAttribute(traan, 1));
-            tGeo.setAttribute('argp', new THREE.BufferAttribute(targp, 1));
-            tGeo.setAttribute('mStart', new THREE.BufferAttribute(tm, 1));
-            tGeo.setAttribute('n', new THREE.BufferAttribute(tn, 1));
-            tGeo.setAttribute('customColor', new THREE.BufferAttribute(tCol, 3));
-            tGeo.setAttribute('typeFilter', new THREE.BufferAttribute(tType, 1));
-            tGeo.setAttribute('timeOffsetNorm', new THREE.BufferAttribute(tOff, 1));
-
-            trailsMaterial = new THREE.ShaderMaterial({
-                uniforms: { ...sharedUniforms, uTrailLengthMins: { value: 0 } },
-                vertexShader: trailVertexShader, fragmentShader: trailFragmentShader,
-                transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
-            });
-
-            trailsMesh = new THREE.LineSegments(tGeo, trailsMaterial);
-            trailsMesh.frustumCulled = false;
-            scene.add(trailsMesh);
-        }
-
-        // --- 5. MAIN ANIMATION LOOP ---
-        function animate() {
-            window.animationId = requestAnimationFrame(animate);
-
-            if (typeof lastTime === 'undefined') return;
-            const now = Date.now();
-            const deltaReal = Math.min(now - lastTime, 50); 
-            lastTime = now;
-            
-            simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * timeMultiplier));
-            const gmst = satellite.gstime(simulatedTime);
-
-            // Camera Management
-            if (!isDashboard && camera) {
-                let targetPos = new THREE.Vector3();
-                let targetLook = new THREE.Vector3(0,0,0);
-                
-                switch(currentStep) {
-                    case 0:
-                        targetPos = latLonToVector3(0, 133, 22);
-                        targetLook.set(0, 0, 0);
-                        break;
-                    case 1:
-                        targetPos = latLonToVector3(51.5, 0, 18); // UK
-                        targetLook.set(0, 0, 0);
-                        break;
-                    case 2:
-                    case 3:
-                    case 4:
-                        targetPos = latLonToVector3(-25, 133, currentStep >= 3 ? 9 : 14); // Aus
-                        targetLook = latLonToVector3(-25, 133, R_EARTH);
-                        break;
-                }
-
-                // Smooth spherical interpolation over the surface of the globe
-                const curLength = camera.position.length();
-                const targetLength = targetPos.length();
-                const newLength = THREE.MathUtils.lerp(curLength, targetLength, 0.03);
-
-                camera.position.lerp(targetPos, 0.03);
-                camera.position.setLength(newLength); 
-
-                currentLookAt.lerp(targetLook, 0.03);
-                camera.lookAt(currentLookAt);
-            } else if (controls) {
-                controls.update(); 
-            }
-
-            // Update Shaders
-            if (pointsMaterial) {
-                const elapsedMins = (simulatedTime.getTime() - simStartTimeMs) / 60000.0;
-                pointsMaterial.uniforms.uTimeMins.value = elapsedMins;
-                pointsMaterial.uniforms.uGmst.value = gmst;
-                pointsMaterial.uniforms.uRadarActive.value = currentStep >= 3 || isDashboard ? 1.0 : 0.0;
-                pointsMaterial.uniforms.uActiveFilter.value = parseInt(currentFilter);
-                
-                if (trailsMaterial) {
-                    trailsMaterial.uniforms.uTimeMins.value = elapsedMins;
-                    trailsMaterial.uniforms.uGmst.value = gmst;
-                    trailsMaterial.uniforms.uRadarActive.value = currentStep >= 3 || isDashboard ? 1.0 : 0.0;
-                    trailsMaterial.uniforms.uActiveFilter.value = parseInt(currentFilter);
-                }
-            }
-
-            if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-            }
-        }
-
-        function onWindowResize() {
-            if (camera && renderer) {
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }
-        }
-
-        // --- 6. INTERACTION & UI ---
-        const steps = document.querySelectorAll('.step');
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    steps.forEach(s => s.classList.remove('active'));
-                    entry.target.classList.add('active');
-                    currentStep = parseInt(entry.target.id.split('-')[1]);
-                }
-            });
-        }, { threshold: 0.5 });
-        steps.forEach(step => observer.observe(step));
-
-        let isScrolling = false;
-        window.addEventListener('scroll', () => {
-            if (!isScrolling) {
-                window.requestAnimationFrame(() => {
-                    const scrollPx = document.documentElement.scrollTop;
-                    const totalHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-                    const progressEl = document.getElementById('progress-bar');
-                    if (progressEl) progressEl.style.width = `${(scrollPx / totalHeight) * 100}%`;
-                    isScrolling = false;
-                });
-                isScrolling = true;
-            }
+      document.querySelectorAll('.pill').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          document.querySelectorAll('.pill').forEach((el) => el.classList.remove('active'));
+          event.currentTarget.classList.add('active');
+          currentFilter = Number(event.currentTarget.dataset.filter || 0);
+          rebuildTrailMesh();
         });
+      });
 
-        const enterBtn = document.getElementById('enter-dash-btn');
-        const exitBtn = document.getElementById('exit-dash-btn');
-        
-        if (enterBtn) enterBtn.addEventListener('click', () => {
-            isDashboard = true;
-            document.body.classList.add('dashboard-active');
-            window.scrollTo({ top: 0, behavior: 'smooth' }); 
-            if (controls) {
-                controls.enabled = true; 
-                controls.autoRotate = true; 
-                controls.autoRotateSpeed = 0.5;
-                controls.target.set(0, 0, 0); 
-            }
-            startDashboardFeeds();
-        });
-
-        if (exitBtn) exitBtn.addEventListener('click', () => {
-            isDashboard = false;
-            document.body.classList.remove('dashboard-active');
-            if (controls) {
-                controls.enabled = false;
-                controls.autoRotate = false;
-            }
-            stopDashboardFeeds();
-            const step3 = document.getElementById('step-4');
-            if (step3) step3.scrollIntoView(); 
-        });
-
-        const speedSlider = document.getElementById('speed-slider');
-        if (speedSlider) speedSlider.addEventListener('input', (e) => {
-            timeMultiplier = parseInt(e.target.value);
-            safeSetText('speed-val', timeMultiplier + 'x');
-        });
-        
-        const trailSlider = document.getElementById('trail-slider');
-        if (trailSlider) trailSlider.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            safeSetText('trail-val', val + 'm');
-            if(trailsMaterial) trailsMaterial.uniforms.uTrailLengthMins.value = val;
-        });
-
-        const playPauseBtn = document.getElementById('play-pause-btn');
-        if (playPauseBtn) playPauseBtn.addEventListener('click', () => {
-            if (controls) {
-                controls.autoRotate = !controls.autoRotate;
-                playPauseBtn.textContent = controls.autoRotate ? '⏸️' : '▶️';
-            }
-        });
-
-        const resetTimeBtn = document.getElementById('reset-time-btn');
-        if (resetTimeBtn) resetTimeBtn.addEventListener('click', () => {
-            simulatedTime = new Date();
-            simStartTimeMs = simulatedTime.getTime(); 
-            if (timeMultiplier === 0) {
-                timeMultiplier = 60;
-                if (speedSlider) speedSlider.value = 60;
-                safeSetText('speed-val', '60x');
-            }
-        });
-
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                e.target.classList.add('active');
-                currentFilter = parseInt(e.target.dataset.filter); 
-            });
-        });
-
-        function startDashboardFeeds() {
-            window.dashboardIntervals.push(setInterval(() => {
-                const parts = simulatedTime.toISOString().split('T');
-                safeSetText('clock', parts[1].split('.')[0] + ' UTC');
-                safeSetText('clock-date', parts[0]);
-            }, 100)); 
-
-            window.dashboardIntervals.push(setInterval(() => {
-                if(parsedSatNames.length === 0 || timeMultiplier === 0) return;
-                
-                const feed = document.getElementById('data-feed');
-                if (!feed) return;
-
-                const randomSat = parsedSatNames[Math.floor(Math.random() * parsedSatNames.length)];
-                const isDanger = Math.random() > 0.85;
-                const timeStr = simulatedTime.toISOString().split('T')[1].substring(0,8);
-                
-                const el = document.createElement('div');
-                el.className = "text-gray-300 transition-opacity duration-500 animate-pulse";
-
-                if (isDanger) {
-                    el.className = "text-red-400 font-bold border-l-2 border-red-500 pl-2";
-                    el.textContent = `[${timeStr}] CONJUNCTION ALERT: ${randomSat} approaching debris field`;
-                } else {
-                    el.textContent = `[${timeStr}] RADAR PING: ${randomSat} tracked over Southern Ocean`;
-                }
-                
-                feed.appendChild(el);
-                if(feed.children.length > 8) feed.removeChild(feed.firstChild);
-            }, 1500));
-        }
-
-        function stopDashboardFeeds() {
-            if (window.dashboardIntervals) {
-                window.dashboardIntervals.forEach(clearInterval);
-                window.dashboardIntervals = [];
-            }
-        }
-
-        init3D();
-        animate();
-
-    </script>
+      runTests();
+      init3D();
+      animate();
+      startDashboardFeeds();
+    }
+  </script>
 </body>
 </html>
