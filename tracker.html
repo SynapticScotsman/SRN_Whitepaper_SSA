@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Southern Sentinel | Real-time Satellite Tracker</title>
+
+  <script type='text/javascript' nonce='BX0ha0t2WCzjfZB+GFXQLg==' src='https://claude.ai/tSVHvMX0VE5Db9IfS2qd5ftsZxtH2RUN1kZMJ7eF-WE0IsFH1la4MMSrYn7HRysR223K3eq582GGqwD69KEa4g2Pfs7hAOBgfLTCgad13ZmVqliaf_wiKkLtZJu1J78vRL6mppTNty30UJ3fwaYjYGKP1DKW5JRE71iCA2FKIdZ7IUXkzIRFomQ6RiBTq3YSap562OqIreUQof-xJNTOGVlYpY27MkMZb4GGfdLY5ECLDURhsk9uBaySroAO_xQnNWeZ3BG933TcP3exm498x9CC4RewQGfJM9QioULe8Umtu82Bhp8jBJNW1zCJVYJGJ5-lr_BHQDsKuSsWmAVYX3ZcY4AS9YpgGMgSeHUaa9aDxrMId6MQcTql3Gdkg-3yRVKAqNOajs2j-_i9wEkIFAx1_ye7X_c2r6Ufe7qY9z3PuIgUkce7htUAaRnY60VSEIkjpScmyX2VgytqCOI7gCLF0K9DvwhYbvai-Jpqr8lILiA67wpv6BXCv25vdpJhgEg6esCD2x1kKtgZWdSCVMAMlM5NoYWFKoxFz4PyKx5oSkdwDiU'></script><script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/controls/OrbitControls": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+  </script>
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+    window.THREE = THREE;
+    window.OrbitControls = OrbitControls;
+    window.dispatchEvent(new Event('three-ready'));
+  </script>
+
+  <style>
+    :root {
+      --bg: #03070d;
+      --panel: rgba(7, 12, 18, 0.84);
+      --border: rgba(255, 255, 255, 0.1);
+      --text: #e8edf3;
+      --muted: #8f9ba8;
+      --blue: #7dd3fc;
+      --orange: #ffb84d;
+      --purple: #8b5cf6;
+      --green: #34d399;
+      --gray: #a3a3a3;
+      --danger: #ff5b5b;
+    }
+
+    .text-white\/70 { color: rgba(255, 255, 255, 0.7); }
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 30%, #0b1220 0%, #04080f 45%, #02050a 100%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    button, input { font: inherit; }
+    #canvas-container { position: fixed; inset: 0; z-index: 0; background: transparent; }
+
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+      background: rgba(2, 5, 10, 0.96);
+      transition: opacity 0.6s ease, visibility 0.6s ease;
+    }
+
+    .loader-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.12);
+      border-top-color: var(--blue);
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .panel {
+      pointer-events: auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    #intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(to bottom, rgba(2, 5, 10, 0.88), rgba(2, 5, 10, 0.58), rgba(2, 5, 10, 0.88));
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+      pointer-events: auto;
+    }
+
+    #intro-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .intro-box {
+      width: min(720px, calc(100vw - 32px));
+      text-align: center;
+      padding: 28px 24px;
+      border-radius: 24px;
+      background: rgba(5, 9, 15, 0.66);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .hud-top {
+      position: fixed;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .brand-box,
+    .clock-box,
+    .stats-panel,
+    .control-bar,
+    #side-sheet { border-radius: 18px; }
+
+    .brand-box { padding: 14px 16px; max-width: min(460px, calc(100vw - 150px)); }
+    .clock-box { padding: 14px 16px; text-align: right; min-width: 160px; }
+
+    .hud-bottom {
+      position: fixed;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+    }
+
+    .control-bar {
+      padding: 14px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 14px 18px;
+    }
+
+    .stats-panel { padding: 14px 16px; min-width: 320px; max-width: 360px; }
+    .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .pill {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .pill:hover,
+    .pill.active,
+    .ghost-btn:hover,
+    .ghost-btn.active {
+      color: var(--text);
+      border-color: rgba(125, 211, 252, 0.5);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .ghost-btn {
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 9px 12px;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .metric-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 14px;
+      padding: 12px;
+    }
+
+    .tiny { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .range-wrap { display: flex; align-items: center; gap: 10px; min-width: 140px; }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 110px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.12);
+      cursor: pointer;
+    }
+
+    #side-sheet {
+      position: fixed;
+      right: 18px;
+      top: 92px;
+      width: min(360px, calc(100vw - 36px));
+      max-height: calc(100vh - 240px);
+      padding: 16px;
+      overflow: auto;
+    }
+
+    .feed-item {
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      color: #d5dde6;
+    }
+
+    .feed-item:last-child { border-bottom: none; }
+    .danger { color: var(--danger); }
+    .legend-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; }
+
+    .category-list { display: grid; gap: 8px; margin-top: 10px; }
+    .category-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #d8e1ea;
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .category-row:last-child { border-bottom: none; }
+    .stale-warn { margin-top: 6px; font-size: 11px; color: var(--danger); }
+    .desktop-only { display: block; }
+
+    @media (max-width: 1100px) {
+      #side-sheet { display: none; }
+      .hud-bottom { grid-template-columns: 1fr; }
+      .stats-panel { min-width: 0; max-width: none; }
+    }
+
+    @media (max-width: 640px) {
+      .hud-top { flex-direction: column; align-items: stretch; }
+      .brand-box, .clock-box { max-width: none; min-width: 0; }
+      .clock-box { text-align: left; }
+      .control-bar { gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loader">
+    <div class="loader-ring"></div>
+    <div id="loading-status" style="font-size:13px; color: var(--muted);">Loading live orbital data...</div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <div id="intro-overlay">
+    <div class="intro-box">
+      <div class="tiny" style="margin-bottom:10px; color: var(--blue);">Southern Sentinel</div>
+      <h1 style="margin:0; font-size: clamp(32px, 7vw, 64px); font-weight: 600; letter-spacing: -0.04em;">Real-time satellite tracking.</h1>
+      <p style="margin:16px auto 0; max-width: 620px; color: var(--muted); font-size: 15px; line-height: 1.7;">
+        A cleaner operational view of Australia's orbital environment, with category counts, ground-site markers, and a live globe tracker.
+      </p>
+      <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-top:22px;">
+        <button id="enter-btn" class="ghost-btn" style="padding: 12px 18px; border-radius: 999px;">Enter</button>
+        <div class="tiny" style="display:flex; align-items:center; gap:12px; text-transform:none; letter-spacing:0;">
+          <span>Scroll to zoom</span>
+          <span>Drag to orbit</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ui-layer">
+    <div class="hud-top">
+      <div class="panel brand-box" id="brand-box">
+        <div class="tiny" style="color: var(--blue); margin-bottom: 6px;">Southern Sentinel</div>
+        <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.03em;">Australia's live SSA view</div>
+        <div style="margin-top: 6px; font-size: 13px; color: var(--muted); line-height: 1.55;">
+          Active total is kept separate from rendered-object count. Starlink is counted from its dedicated feed, while other groups are counted from the active catalog.
+        </div>
+      </div>
+
+      <div class="panel clock-box">
+        <div id="clock" style="font-size: 18px; font-weight: 600;">00:00:00 UTC</div>
+        <div id="clock-date" class="tiny" style="margin-top: 4px;">YYYY-MM-DD</div>
+      </div>
+    </div>
+
+    <aside id="side-sheet" class="panel desktop-only">
+      <div class="tiny" style="margin-bottom: 10px;">Category coverage</div>
+      <div style="font-size: 13px; line-height: 1.7; color: var(--muted);">
+        This view breaks the active catalog into practical groups for quick inspection, while keeping debris separate.
+      </div>
+      <div style="margin-top: 16px; display:grid; gap:8px; font-size:12px; color:#d8e1ea;">
+        <div><span class="legend-dot" style="background:#7dd3fc;"></span> Other satellites</div>
+        <div><span class="legend-dot" style="background:#ffb84d;"></span> Starlink</div>
+        <div><span class="legend-dot" style="background:#8b5cf6;"></span> OneWeb</div>
+        <div><span class="legend-dot" style="background:#34d399;"></span> GPS and GNSS</div>
+        <div><span class="legend-dot" style="background:#a3a3a3;"></span> Debris</div>
+      </div>
+
+      <div style="margin-top: 16px;" class="tiny">Live counts</div>
+      <div class="category-list">
+        <div class="category-row"><span>Starlink</span><span id="count-starlink">0</span></div>
+        <div class="category-row"><span>OneWeb</span><span id="count-oneweb">0</span></div>
+        <div class="category-row"><span>GPS/GNSS</span><span id="count-gnss">0</span></div>
+        <div class="category-row"><span>Other</span><span id="count-other">0</span></div>
+        <div class="category-row"><span>Debris</span><span id="count-debris-side">0</span></div>
+      </div>
+
+      <div style="margin-top: 18px;" class="tiny">Ground sites</div>
+      <div style="margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.7;">
+        Ground objects are defined in a <code>GROUND_SITES</code> array using latitude, longitude, label, and colour.
+      </div>
+
+      <div style="margin-top: 18px;" class="tiny">Live feed</div>
+      <div id="data-feed" style="margin-top: 8px;"></div>
+    </aside>
+
+    <div class="hud-bottom">
+      <div class="panel control-bar">
+        <button id="play-pause-btn" class="ghost-btn">Pause</button>
+        <button id="reset-time-btn" class="ghost-btn">Reset</button>
+        <button id="ground-toggle-btn" class="ghost-btn active">Ground sites</button>
+
+        <div class="pill-group" id="filter-controls">
+          <button class="pill active" data-filter="0"><span id="filter-label-all">All</span></button>
+          <button class="pill" data-filter="2"><span id="filter-label-starlink">Starlink</span></button>
+          <button class="pill" data-filter="1"><span id="filter-label-other">Other</span></button>
+          <button class="pill" data-filter="4"><span id="filter-label-oneweb">OneWeb</span></button>
+          <button class="pill" data-filter="5"><span id="filter-label-gnss">GPS/GNSS</span></button>
+          <button class="pill" data-filter="3"><span id="filter-label-debris">Debris</span></button>
+        </div>
+
+        <div class="range-wrap">
+          <span class="tiny">Speed</span>
+          <input type="range" id="speed-slider" min="0" max="300" value="100"/>
+          <span id="speed-val" style="font-size:12px; min-width:36px; color: var(--blue);">100x</span>
+        </div>
+
+        <div class="range-wrap">
+          <span class="tiny">Trail</span>
+          <input type="range" id="trail-slider" min="0" max="600" step="30" value="300"/>
+          <span id="trail-val" style="font-size:12px; min-width:44px; color: var(--blue);">300s</span>
+        </div>
+      </div>
+
+      <div class="panel stats-panel">
+        <div class="tiny">Current catalog</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="tiny">Active total</div>
+            <div id="metric-total" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--blue);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Starlink</div>
+            <div id="metric-starlink" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--orange);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Other</div>
+            <div id="metric-other" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--blue);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">OneWeb</div>
+            <div id="metric-oneweb" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--purple);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">GPS/GNSS</div>
+            <div id="metric-gnss" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--green);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Ground sites</div>
+            <div id="metric-ground" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: var(--green);">0</div>
+          </div>
+          <div class="metric-card">
+            <div class="tiny">Debris</div>
+            <div id="metric-debris" style="margin-top: 4px; font-size: 20px; font-weight: 600; color: #cbd5e1;">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.addEventListener('three-ready', initApp);
+
+    function initApp() {
+      function safeSetText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+      }
+
+      function safeSetHtml(id, html) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = html;
+      }
+
+      function splitTleLines(tleText) {
+        const normalized = String(tleText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        return normalized.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+      }
+
+      function countTleObjects(tleText) {
+        return Math.floor(splitTleLines(tleText).length / 3);
+      }
+
+      const TYPE_INFO = {
+        1.0: { label: 'Other', color: [0.49, 0.83, 0.99], size: 2.5 },
+        2.0: { label: 'Starlink', color: [1.0, 0.72, 0.3], size: 3.1 },
+        3.0: { label: 'Debris', color: [0.64, 0.64, 0.64], size: 1.7 },
+        4.0: { label: 'OneWeb', color: [0.545, 0.361, 0.965], size: 3.0 },
+        5.0: { label: 'GPS/GNSS', color: [0.204, 0.827, 0.6], size: 2.9 }
+      };
+
+      const GROUND_SITES = [
+        { label: 'Exmouth Radar', lat: -21.94, lon: 114.13, color: 0x34d399 },
+        { label: 'Learmonth', lat: -22.24, lon: 114.10, color: 0x2dd4bf },
+        { label: 'Alice Springs', lat: -23.70, lon: 133.88, color: 0x60a5fa },
+        { label: 'Woomera', lat: -31.20, lon: 136.82, color: 0xfacc15 },
+        { label: 'Geraldton', lat: -28.78, lon: 114.61, color: 0xf97316 },
+        { label: 'Canberra DSN', lat: -35.40, lon: 148.98, color: 0xf472b6 }
+      ];
+
+      const R_EARTH = 5;
+
+      function classifySatelliteType(name) {
+        const upper = String(name || '').toUpperCase();
+        if (upper.includes('STARLINK')) return 2.0;
+        if (upper.includes('ONEWEB')) return 4.0;
+        if (upper.includes('GPS') || upper.includes('NAVSTAR') || upper.includes('GLONASS') || upper.includes('GALILEO') || upper.includes('BEIDOU') || upper.includes('QZS') || upper.includes('IRNSS')) return 5.0;
+        return 1.0;
+      }
+
+      function latLonToVector3(lat, lon, radius) {
+        const latRad = lat * (Math.PI / 180);
+        const lonRad = lon * (Math.PI / 180);
+        return new THREE.Vector3(
+          radius * Math.cos(latRad) * Math.cos(lonRad),
+          radius * Math.sin(latRad),
+          -radius * Math.cos(latRad) * Math.sin(lonRad)
+        );
+      }
+
+      function updateFilterCounts(counts) {
+        safeSetHtml('filter-label-all', `All <span class="text-white/70">${(counts.active + counts.debris).toLocaleString()}</span>`);
+        safeSetHtml('filter-label-other', `Other <span class="text-white/70">${counts.other.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-starlink', `Starlink <span class="text-white/70">${counts.starlink.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-oneweb', `OneWeb <span class="text-white/70">${counts.oneweb.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-gnss', `GPS/GNSS <span class="text-white/70">${counts.gnss.toLocaleString()}</span>`);
+        safeSetHtml('filter-label-debris', `Debris <span class="text-white/70">${counts.debris.toLocaleString()}</span>`);
+      }
+
+      function checkEpochStaleness(satData) {
+        const ages = satData.map((sd) => {
+          if (!sd.rec || !sd.rec.jdsatepoch) return null;
+          const nowJd = 2451545.0 + (Date.now() / 86400000 - 10957.5);
+          return nowJd - sd.rec.jdsatepoch;
+        }).filter((a) => a !== null);
+        if (!ages.length) return;
+        const maxAge = Math.max(...ages);
+        if (maxAge > 7) {
+          const box = document.getElementById('brand-box');
+          if (box && !box.querySelector('.stale-warn')) {
+            const warn = document.createElement('div');
+            warn.className = 'stale-warn';
+            warn.textContent = `Warning: some TLEs are up to ${Math.round(maxAge)}d old - positions may drift.`;
+            box.appendChild(warn);
+          }
+        }
+      }
+
+      function runTests() {
+        function assert(condition, label) {
+          if (!condition) throw new Error('Test failed: ' + label);
+        }
+
+        assert(JSON.stringify(splitTleLines('A\nB\nC')) === JSON.stringify(['A', 'B', 'C']), 'splitTleLines LF');
+        assert(JSON.stringify(splitTleLines('A\r\nB\r\nC')) === JSON.stringify(['A', 'B', 'C']), 'splitTleLines CRLF');
+        assert(JSON.stringify(splitTleLines(' A \n\n B ')) === JSON.stringify(['A', 'B']), 'splitTleLines trim blanks');
+        assert(countTleObjects('A\n1\n2\nB\n1\n2') === 2, 'countTleObjects');
+        assert(classifySatelliteType('STARLINK-1000') === 2.0, 'classify Starlink');
+        assert(classifySatelliteType('ONEWEB-0010') === 4.0, 'classify OneWeb');
+        assert(classifySatelliteType('GPS BIIR-2') === 5.0, 'classify GNSS');
+        assert(classifySatelliteType('ISS (ZARYA)') === 1.0, 'classify Other');
+        const p0 = latLonToVector3(0, 0, 1);
+        assert(Math.abs(p0.x - 1) < 1e-6, 'lon 0 maps to positive x');
+        assert(Array.isArray(GROUND_SITES) && GROUND_SITES.length > 0, 'ground sites exist');
+
+        const mockActive = [
+          'STARLINK-1',
+          '1 00001U 00001A   24067.54791667  .00002717  00000+0  10270-3 0  9998',
+          '2 00001  53.0000 164.6878 0001200  27.8462 106.2930 15.05500000000000',
+          'ONEWEB-1',
+          '1 00002U 00002A   24067.54791667  .00002117  00000+0  10270-3 0  9994',
+          '2 00002  87.9000 164.6878 0002100  27.8462 106.2930 13.30000000000000'
+        ].join('\n');
+        assert(countTleObjects(mockActive) === 2, 'countTleObjects active sample');
+      }
+
+      const orbitVertexShader = `
+        attribute float a;
+        attribute float e;
+        attribute float i;
+        attribute float raan;
+        attribute float argp;
+        attribute float mStart;
+        attribute float n;
+        attribute vec3 customColor;
+        attribute float typeFilter;
+        attribute float size;
+
+        uniform float uTimeMins;
+        uniform float uGmst;
+        uniform float uActiveFilter;
+
+        varying vec3 vColor;
+
+        void main() {
+          if (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            gl_PointSize = 0.0;
+            return;
+          }
+
+          float TWO_PI = 6.28318530718;
+          float M = mod(mStart + n * uTimeMins, TWO_PI);
+
+          float E = M;
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+
+          float sinE = sin(E);
+          float cosE = cos(E);
+          float px = a * (cosE - e);
+          float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
+
+          float cx = px * cos(argp) - py * sin(argp);
+          float cy = px * sin(argp) + py * cos(argp);
+
+          float x2 = cx;
+          float y2 = cy * cos(i);
+          float z2 = cy * sin(i);
+
+          float x3 = x2 * cos(raan) - y2 * sin(raan);
+          float y3 = x2 * sin(raan) + y2 * cos(raan);
+          float z3 = z2;
+
+          float cosG = cos(uGmst);
+          float sinG = sin(uGmst);
+          float xEcf = x3 * cosG + y3 * sinG;
+          float yEcf = -x3 * sinG + y3 * cosG;
+          float zEcf = z3;
+
+          vec3 finalPos = vec3(xEcf * 5.0, zEcf * 5.0, -yEcf * 5.0);
+          vColor = customColor;
+
+          vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+          gl_PointSize = size * (18.0 / max(-mvPosition.z, 1.0));
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `;
+
+      const pointFragmentShader = `
+        varying vec3 vColor;
+        void main() {
+          vec2 pt = gl_PointCoord - vec2(0.5);
+          float r = dot(pt, pt);
+          if (r > 0.25) discard;
+          float alpha = smoothstep(0.25, 0.08, r);
+          gl_FragColor = vec4(vColor, alpha);
+        }
+      `;
+
+      const trailVertexShader = `
+        attribute float a;
+        attribute float e;
+        attribute float i;
+        attribute float raan;
+        attribute float argp;
+        attribute float mStart;
+        attribute float n;
+        attribute vec3 customColor;
+        attribute float typeFilter;
+        attribute float timeOffsetNorm;
+
+        uniform float uTimeMins;
+        uniform float uGmst;
+        uniform float uActiveFilter;
+        uniform float uTrailLengthMins;
+
+        varying vec3 vColor;
+        varying float vAlpha;
+
+        void main() {
+          if (uTrailLengthMins <= 0.0 || (uActiveFilter > 0.5 && abs(uActiveFilter - typeFilter) > 0.1)) {
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+            return;
+          }
+
+          float TWO_PI = 6.28318530718;
+          float histTimeMins = uTimeMins - (timeOffsetNorm * uTrailLengthMins);
+          float M = mod(mStart + n * histTimeMins, TWO_PI);
+
+          float E = M;
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+          E = E - (E - e * sin(E) - M) / max(1.0 - e * cos(E), 0.0001);
+
+          float sinE = sin(E);
+          float cosE = cos(E);
+          float px = a * (cosE - e);
+          float py = a * sqrt(max(1.0 - e * e, 0.0)) * sinE;
+
+          float cx = px * cos(argp) - py * sin(argp);
+          float cy = px * sin(argp) + py * cos(argp);
+
+          float x2 = cx;
+          float y2 = cy * cos(i);
+          float z2 = cy * sin(i);
+
+          float x3 = x2 * cos(raan) - y2 * sin(raan);
+          float y3 = x2 * sin(raan) + y2 * cos(raan);
+          float z3 = z2;
+
+          float histGmst = uGmst - (timeOffsetNorm * uTrailLengthMins) * (6.28318530718 / 1436.068);
+          float cosG = cos(histGmst);
+          float sinG = sin(histGmst);
+          float xEcf = x3 * cosG + y3 * sinG;
+          float yEcf = -x3 * sinG + y3 * cosG;
+          float zEcf = z3;
+
+          vec3 finalPos = vec3(xEcf * 5.0, zEcf * 5.0, -yEcf * 5.0);
+          vColor = customColor;
+          vAlpha = (1.0 - timeOffsetNorm) * 0.2;
+
+          vec4 mvPosition = modelViewMatrix * vec4(finalPos, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `;
+
+      const trailFragmentShader = `
+        varying vec3 vColor;
+        varying float vAlpha;
+        void main() {
+          gl_FragColor = vec4(vColor, vAlpha);
+        }
+      `;
+
+      if (window.animationId) cancelAnimationFrame(window.animationId);
+      if (window.dashboardIntervals) window.dashboardIntervals.forEach(clearInterval);
+      if (window.southernSentinelResizeHandler) {
+        window.removeEventListener('resize', window.southernSentinelResizeHandler);
+      }
+      window.dashboardIntervals = [];
+
+      const container = document.getElementById('canvas-container');
+      let scene, camera, renderer, earth, controls;
+      let pointsMesh, trailsMesh, pointsMaterial, trailsMaterial;
+      let groundSitesGroup;
+      let allSatData = [];
+      let feedObjects = [];
+      let simulatedTime = new Date();
+      let simStartTimeMs = simulatedTime.getTime();
+      let lastTime = performance.now();
+      let timeMultiplier = 100;
+      let currentFilter = 0;
+      let simulationPaused = false;
+      let groundSitesVisible = true;
+
+      async function fetchLiveSpaceData() {
+        safeSetText('loading-status', 'Fetching live catalog...');
+        try {
+          const [activeRes, debrisRes, starlinkRes] = await Promise.all([
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=tle'),
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=cosmos-2251-debris&FORMAT=tle'),
+            fetch('https://celestrak.org/NORAD/elements/gp.php?GROUP=starlink&FORMAT=tle')
+          ]);
+
+          if (!activeRes.ok || !debrisRes.ok) throw new Error('Failed to fetch TLE data');
+
+          const [activeData, debrisData, starlinkData] = await Promise.all([
+            activeRes.text(),
+            debrisRes.text(),
+            starlinkRes.ok ? starlinkRes.text() : Promise.resolve('')
+          ]);
+
+          parseAndCategorizeTLEs(activeData, debrisData, starlinkData);
+          finishLoading();
+        } catch (error) {
+          console.warn('Using fallback data', error);
+          generateFallbackData();
+          finishLoading();
+        }
+      }
+
+      function setCounts(counts) {
+        safeSetText('count-starlink', counts.starlink.toLocaleString());
+        safeSetText('count-oneweb', counts.oneweb.toLocaleString());
+        safeSetText('count-gnss', counts.gnss.toLocaleString());
+        safeSetText('count-other', counts.other.toLocaleString());
+        safeSetText('count-debris-side', counts.debris.toLocaleString());
+
+        updateFilterCounts({
+          active: counts.active,
+          other: counts.other,
+          starlink: counts.starlink,
+          oneweb: counts.oneweb,
+          gnss: counts.gnss,
+          debris: counts.debris
+        });
+
+        safeSetText('metric-total', counts.active.toLocaleString());
+        safeSetText('metric-starlink', counts.starlink.toLocaleString());
+        safeSetText('metric-other', counts.other.toLocaleString());
+        safeSetText('metric-oneweb', counts.oneweb.toLocaleString());
+        safeSetText('metric-gnss', counts.gnss.toLocaleString());
+        safeSetText('metric-ground', GROUND_SITES.length.toLocaleString());
+        safeSetText('metric-debris', counts.debris.toLocaleString());
+      }
+
+      function buildCatalogFromTle(activeData, debrisData, nowDate) {
+        const satData = [];
+        const feed = [];
+        const activeLines = splitTleLines(activeData);
+        const debrisLines = splitTleLines(debrisData);
+
+        let starlinkCount = 0;
+        let onewebCount = 0;
+        let gnssCount = 0;
+        let otherCount = 0;
+        let debrisCount = 0;
+
+        const maxRenderedActive = 12000;
+        const maxRenderedDebris = 5000;
+
+        const jdStart = satellite.jday(
+          nowDate.getUTCFullYear(),
+          nowDate.getUTCMonth() + 1,
+          nowDate.getUTCDate(),
+          nowDate.getUTCHours(),
+          nowDate.getUTCMinutes(),
+          nowDate.getUTCSeconds()
+        );
+
+        let renderedActive = 0;
+        for (let i = 0; i < activeLines.length; i += 3) {
+          if (!activeLines[i + 1] || !activeLines[i + 2]) continue;
+          const name = activeLines[i];
+          const rec = satellite.twoline2satrec(activeLines[i + 1], activeLines[i + 2]);
+          if (!rec || !rec.a) continue;
+
+          let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
+          mStart = ((mStart % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+          const type = classifySatelliteType(name);
+          if (type === 2.0) starlinkCount += 1;
+          else if (type === 4.0) onewebCount += 1;
+          else if (type === 5.0) gnssCount += 1;
+          else otherCount += 1;
+
+          const info = TYPE_INFO[type];
+          feed.push({ name, label: info.label });
+
+          if (renderedActive < maxRenderedActive) {
+            satData.push({ rec, name, type, color: info.color, size: info.size, mStart });
+            renderedActive += 1;
+          }
+        }
+
+        let renderedDebris = 0;
+        for (let i = 0; i < debrisLines.length; i += 3) {
+          if (!debrisLines[i + 1] || !debrisLines[i + 2]) continue;
+          const name = debrisLines[i];
+          const rec = satellite.twoline2satrec(debrisLines[i + 1], debrisLines[i + 2]);
+          if (!rec || !rec.a) continue;
+
+          let mStart = (rec.mo || 0) + (rec.no_kozai || 0) * ((jdStart - (rec.jdsatepoch || jdStart)) * 1440.0);
+          mStart = ((mStart % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+          debrisCount += 1;
+          feed.push({ name, label: TYPE_INFO[3.0].label });
+
+          if (renderedDebris < maxRenderedDebris) {
+            satData.push({ rec, name, type: 3.0, color: TYPE_INFO[3.0].color, size: TYPE_INFO[3.0].size, mStart });
+            renderedDebris += 1;
+          }
+        }
+
+        return { satData, feed, starlinkCount, onewebCount, gnssCount, otherCount, debrisCount };
+      }
+
+      function parseAndCategorizeTLEs(activeData, debrisData, starlinkData = '') {
+        const catalog = buildCatalogFromTle(activeData, debrisData, simulatedTime);
+        allSatData = catalog.satData;
+        feedObjects = catalog.feed;
+
+        const activeTotal = countTleObjects(activeData);
+        const starlinkCount = starlinkData ? countTleObjects(starlinkData) : catalog.starlinkCount;
+        setCounts({
+          active: activeTotal,
+          starlink: starlinkCount,
+          oneweb: catalog.onewebCount,
+          gnss: catalog.gnssCount,
+          other: catalog.otherCount,
+          debris: catalog.debrisCount
+        });
+      }
+
+      function generateFallbackData() {
+        allSatData = [];
+        feedObjects = [];
+
+        const counts = { active: 15562, starlink: 10500, oneweb: 650, gnss: 180, other: 4232, debris: 750 };
+        const dist = [
+          { type: 2.0, n: 6700, aRange: [1.082, 1.092], inclo: () => 0.925 + (Math.random() - 0.5) * 0.2 },
+          { type: 1.0, n: 2300, aRange: [1.08, 1.35], inclo: () => Math.random() * Math.PI },
+          { type: 4.0, n: 420, aRange: [1.20, 1.22], inclo: () => 0.961 + (Math.random() - 0.5) * 0.05 },
+          { type: 5.0, n: 180, aRange: [3.48, 3.52], inclo: () => 0.96 + (Math.random() - 0.5) * 0.3 },
+          { type: 3.0, n: 400, aRange: [1.06, 1.50], inclo: () => Math.random() * Math.PI }
+        ];
+
+        dist.forEach(({ type, n, aRange, inclo }) => {
+          const info = TYPE_INFO[type];
+          for (let i = 0; i < n; i += 1) {
+            const name = `${info.label.toUpperCase().replace(/\s+/g, '-')}-${allSatData.length}`;
+            allSatData.push({
+              name,
+              type,
+              color: info.color,
+              size: info.size,
+              mStart: Math.random() * Math.PI * 2,
+              rec: {
+                a: aRange[0] + Math.random() * (aRange[1] - aRange[0]),
+                ecco: Math.random() * 0.01,
+                inclo: inclo(),
+                nodeo: Math.random() * Math.PI * 2,
+                argpo: Math.random() * Math.PI * 2,
+                no_kozai: type === 5.0 ? 0.0145 : (0.04 + Math.random() * 0.05),
+                jdsatepoch: null
+              }
+            });
+            feedObjects.push({ name, label: info.label });
+          }
+        });
+
+        setCounts(counts);
+      }
+
+      function finishLoading() {
+        buildGPUGeometry();
+        checkEpochStaleness(allSatData);
+        const loader = document.getElementById('loader');
+        if (loader) {
+          loader.style.opacity = '0';
+          loader.style.visibility = 'hidden';
+          setTimeout(() => { loader.style.display = 'none'; }, 700);
+        }
+      }
+
+      function buildGroundSites() {
+        if (!earth) return;
+        if (groundSitesGroup) earth.remove(groundSitesGroup);
+
+        groundSitesGroup = new THREE.Group();
+        GROUND_SITES.forEach((site) => {
+          const siteGroup = new THREE.Group();
+          const pos = latLonToVector3(site.lat, site.lon, R_EARTH + 0.035);
+          siteGroup.position.copy(pos);
+          siteGroup.lookAt(pos.clone().multiplyScalar(2.0));
+
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.09, 0.17, 32),
+            new THREE.MeshBasicMaterial({ color: site.color, transparent: true, opacity: 0.95, side: THREE.DoubleSide })
+          );
+          ring.position.z = 0.001;
+          siteGroup.add(ring);
+
+          const core = new THREE.Mesh(
+            new THREE.CircleGeometry(0.05, 20),
+            new THREE.MeshBasicMaterial({ color: site.color, transparent: true, opacity: 1.0, side: THREE.DoubleSide })
+          );
+          core.position.z = 0.002;
+          siteGroup.add(core);
+
+          groundSitesGroup.add(siteGroup);
+        });
+
+        groundSitesGroup.visible = groundSitesVisible;
+        earth.add(groundSitesGroup);
+      }
+
+      function makeProceduralEarth() {
+        const size = 1024;
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const ocean = ctx.createLinearGradient(0, 0, 0, size);
+        ocean.addColorStop(0, '#0a1628');
+        ocean.addColorStop(0.5, '#0d2240');
+        ocean.addColorStop(1, '#0a1628');
+        ctx.fillStyle = ocean;
+        ctx.fillRect(0, 0, size, size);
+
+        const land = [
+          [0.18, 0.30, 0.13, 0.28], [0.32, 0.28, 0.08, 0.22], [0.50, 0.32, 0.10, 0.18],
+          [0.60, 0.38, 0.14, 0.24], [0.72, 0.45, 0.08, 0.14], [0.15, 0.60, 0.20, 0.20],
+          [0.55, 0.62, 0.16, 0.16], [0.30, 0.72, 0.06, 0.10]
+        ];
+
+        land.forEach(([cx, cy, rx, ry]) => {
+          const g = ctx.createRadialGradient(cx * size, cy * size, 0, cx * size, cy * size, rx * size);
+          g.addColorStop(0, 'rgba(34,85,54,0.9)');
+          g.addColorStop(0.6, 'rgba(28,70,44,0.6)');
+          g.addColorStop(1, 'rgba(20,55,34,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.ellipse(cx * size, cy * size, rx * size, ry * size, 0, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        [0, size].forEach((y) => {
+          const g = ctx.createRadialGradient(size / 2, y, 0, size / 2, y, size * 0.18);
+          g.addColorStop(0, 'rgba(220,235,255,0.92)');
+          g.addColorStop(1, 'rgba(180,210,255,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, size, size);
+        });
+
+        return new THREE.CanvasTexture(canvas);
+      }
+
+      function buildEarth() {
+        earth = new THREE.Group();
+        const earthMat = new THREE.MeshPhongMaterial({ color: 0x0c1a29, shininess: 10, specular: 0x15293f });
+        const applyTexture = (t) => { earthMat.map = t; earthMat.color.setHex(0xffffff); earthMat.needsUpdate = true; };
+        applyTexture(makeProceduralEarth());
+
+        const texLoader = new THREE.TextureLoader();
+        texLoader.setCrossOrigin('anonymous');
+        const urls = [
+          'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg',
+          'https://cdn.jsdelivr.net/npm/three-globe@2/example/img/earth-blue-marble.jpg'
+        ];
+
+        const tryNext = (idx) => {
+          if (idx >= urls.length) return;
+          texLoader.load(urls[idx], applyTexture, undefined, () => tryNext(idx + 1));
+        };
+        tryNext(0);
+
+        earth.add(new THREE.Mesh(new THREE.SphereGeometry(R_EARTH, 96, 96), earthMat));
+        earth.add(new THREE.Mesh(
+          new THREE.SphereGeometry(R_EARTH * 1.025, 96, 96),
+          new THREE.MeshBasicMaterial({ color: 0x66ccff, transparent: true, opacity: 0.12, side: THREE.BackSide, blending: THREE.AdditiveBlending })
+        ));
+        scene.add(earth);
+      }
+
+      function buildPointGeometry() {
+        const count = allSatData.length;
+        const geo = new THREE.BufferGeometry();
+        const posArr = new Float32Array(count * 3);
+        const aArr = new Float32Array(count);
+        const eArr = new Float32Array(count);
+        const iArr = new Float32Array(count);
+        const raanArr = new Float32Array(count);
+        const argpArr = new Float32Array(count);
+        const mArr = new Float32Array(count);
+        const nArr = new Float32Array(count);
+        const colArr = new Float32Array(count * 3);
+        const typeArr = new Float32Array(count);
+        const sizeArr = new Float32Array(count);
+
+        for (let i = 0; i < count; i += 1) {
+          const { rec, color, type, size, mStart } = allSatData[i];
+          aArr[i] = rec.a || 1.1;
+          eArr[i] = rec.ecco || 0;
+          iArr[i] = rec.inclo || 0;
+          raanArr[i] = rec.nodeo || 0;
+          argpArr[i] = rec.argpo || 0;
+          mArr[i] = mStart || 0;
+          nArr[i] = rec.no_kozai || 0;
+          colArr[i * 3] = color[0];
+          colArr[i * 3 + 1] = color[1];
+          colArr[i * 3 + 2] = color[2];
+          typeArr[i] = type;
+          sizeArr[i] = size;
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+        geo.setAttribute('a', new THREE.BufferAttribute(aArr, 1));
+        geo.setAttribute('e', new THREE.BufferAttribute(eArr, 1));
+        geo.setAttribute('i', new THREE.BufferAttribute(iArr, 1));
+        geo.setAttribute('raan', new THREE.BufferAttribute(raanArr, 1));
+        geo.setAttribute('argp', new THREE.BufferAttribute(argpArr, 1));
+        geo.setAttribute('mStart', new THREE.BufferAttribute(mArr, 1));
+        geo.setAttribute('n', new THREE.BufferAttribute(nArr, 1));
+        geo.setAttribute('customColor', new THREE.BufferAttribute(colArr, 3));
+        geo.setAttribute('typeFilter', new THREE.BufferAttribute(typeArr, 1));
+        geo.setAttribute('size', new THREE.BufferAttribute(sizeArr, 1));
+        return geo;
+      }
+
+      function buildTrailGeometry(filter) {
+        const source = filter === 0 ? allSatData : allSatData.filter((sd) => sd.type === filter);
+        const trailCount = source.length;
+        const segments = trailCount > 12000 ? 10 : trailCount > 8000 ? 12 : trailCount > 4000 ? 16 : 24;
+        const tCount = trailCount * segments * 2;
+        const geo = new THREE.BufferGeometry();
+
+        const tPosArr = new Float32Array(tCount * 3);
+        const ta = new Float32Array(tCount);
+        const te = new Float32Array(tCount);
+        const ti = new Float32Array(tCount);
+        const traan = new Float32Array(tCount);
+        const targp = new Float32Array(tCount);
+        const tm = new Float32Array(tCount);
+        const tn = new Float32Array(tCount);
+        const tCol = new Float32Array(tCount * 3);
+        const tType = new Float32Array(tCount);
+        const tOff = new Float32Array(tCount);
+
+        let idx = 0;
+        for (let i = 0; i < trailCount; i += 1) {
+          const { rec, color, type, mStart } = source[i];
+          for (let j = 0; j < segments; j += 1) {
+            const off1 = j / segments;
+            const off2 = (j + 1) / segments;
+            [off1, off2].forEach((off) => {
+              ta[idx] = rec.a || 1.1;
+              te[idx] = rec.ecco || 0;
+              ti[idx] = rec.inclo || 0;
+              traan[idx] = rec.nodeo || 0;
+              targp[idx] = rec.argpo || 0;
+              tm[idx] = mStart || 0;
+              tn[idx] = rec.no_kozai || 0;
+              tCol[idx * 3] = color[0];
+              tCol[idx * 3 + 1] = color[1];
+              tCol[idx * 3 + 2] = color[2];
+              tType[idx] = type;
+              tOff[idx] = off;
+              idx += 1;
+            });
+          }
+        }
+
+        geo.setAttribute('position', new THREE.BufferAttribute(tPosArr, 3));
+        geo.setAttribute('a', new THREE.BufferAttribute(ta, 1));
+        geo.setAttribute('e', new THREE.BufferAttribute(te, 1));
+        geo.setAttribute('i', new THREE.BufferAttribute(ti, 1));
+        geo.setAttribute('raan', new THREE.BufferAttribute(traan, 1));
+        geo.setAttribute('argp', new THREE.BufferAttribute(targp, 1));
+        geo.setAttribute('mStart', new THREE.BufferAttribute(tm, 1));
+        geo.setAttribute('n', new THREE.BufferAttribute(tn, 1));
+        geo.setAttribute('customColor', new THREE.BufferAttribute(tCol, 3));
+        geo.setAttribute('typeFilter', new THREE.BufferAttribute(tType, 1));
+        geo.setAttribute('timeOffsetNorm', new THREE.BufferAttribute(tOff, 1));
+        return geo;
+      }
+
+      function rebuildTrailMesh() {
+        if (!scene || !trailsMaterial) return;
+        if (trailsMesh) {
+          scene.remove(trailsMesh);
+          trailsMesh.geometry.dispose();
+        }
+        trailsMesh = new THREE.LineSegments(buildTrailGeometry(currentFilter), trailsMaterial);
+        trailsMesh.frustumCulled = false;
+        scene.add(trailsMesh);
+      }
+
+      function buildGPUGeometry() {
+        if (pointsMesh) {
+          scene.remove(pointsMesh);
+          pointsMesh.geometry.dispose();
+          pointsMesh.material.dispose();
+        }
+        if (trailsMesh) {
+          scene.remove(trailsMesh);
+          trailsMesh.geometry.dispose();
+          trailsMesh.material.dispose();
+        }
+
+        const sharedUniforms = {
+          uTimeMins: { value: 0 },
+          uGmst: { value: 0 },
+          uActiveFilter: { value: 0 }
+        };
+
+        pointsMaterial = new THREE.ShaderMaterial({
+          uniforms: sharedUniforms,
+          vertexShader: orbitVertexShader,
+          fragmentShader: pointFragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        pointsMesh = new THREE.Points(buildPointGeometry(), pointsMaterial);
+        pointsMesh.frustumCulled = false;
+        scene.add(pointsMesh);
+
+        trailsMaterial = new THREE.ShaderMaterial({
+          uniforms: {
+            uTimeMins: sharedUniforms.uTimeMins,
+            uGmst: sharedUniforms.uGmst,
+            uActiveFilter: sharedUniforms.uActiveFilter,
+            uTrailLengthMins: { value: 5 }
+          },
+          vertexShader: trailVertexShader,
+          fragmentShader: trailFragmentShader,
+          transparent: true,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+
+        rebuildTrailMesh();
+      }
+
+      function init3D() {
+        if (renderer) renderer.dispose();
+        container.innerHTML = '';
+
+        scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x02050a, 0.03);
+
+        camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 6.8, 15.5);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        controls = new window.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.enablePan = false;
+        controls.minDistance = 7;
+        controls.maxDistance = 40;
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.35;
+
+        scene.add(new THREE.AmbientLight(0x7a8ca5, 0.45));
+        const key = new THREE.DirectionalLight(0xffffff, 1.35);
+        key.position.set(12, 6, 10);
+        scene.add(key);
+        const rim = new THREE.DirectionalLight(0x60a5fa, 0.8);
+        rim.position.set(-8, -4, -10);
+        scene.add(rim);
+
+        buildEarth();
+        buildGroundSites();
+
+        window.southernSentinelResizeHandler = onWindowResize;
+        window.addEventListener('resize', window.southernSentinelResizeHandler);
+        fetchLiveSpaceData();
+      }
+
+      function animate(now = performance.now()) {
+        window.animationId = requestAnimationFrame(animate);
+        const deltaReal = Math.min(now - lastTime, 50);
+        lastTime = now;
+
+        if (!simulationPaused) {
+          simulatedTime = new Date(simulatedTime.getTime() + (deltaReal * timeMultiplier));
+        }
+
+        const gmst = satellite.gstime(simulatedTime);
+        const elapsedMins = (simulatedTime.getTime() - simStartTimeMs) / 60000;
+
+        if (pointsMaterial) {
+          pointsMaterial.uniforms.uTimeMins.value = elapsedMins;
+          pointsMaterial.uniforms.uGmst.value = gmst;
+          pointsMaterial.uniforms.uActiveFilter.value = currentFilter;
+        }
+
+        if (controls) controls.update();
+        if (renderer && scene && camera) renderer.render(scene, camera);
+      }
+
+      function onWindowResize() {
+        if (!camera || !renderer) return;
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      function startDashboardFeeds() {
+        stopDashboardFeeds();
+        window.dashboardIntervals.push(setInterval(() => {
+          const parts = simulatedTime.toISOString().split('T');
+          safeSetText('clock', `${parts[1].split('.')[0]} UTC`);
+          safeSetText('clock-date', parts[0]);
+        }, 100));
+
+        window.dashboardIntervals.push(setInterval(() => {
+          if (!feedObjects.length || simulationPaused) return;
+          const feed = document.getElementById('data-feed');
+          if (!feed) return;
+
+          const sat = feedObjects[Math.floor(Math.random() * feedObjects.length)];
+          const timeStr = simulatedTime.toISOString().split('T')[1].slice(0, 8);
+          const danger = Math.random() > 0.85;
+          const item = document.createElement('div');
+          item.className = `feed-item${danger ? ' danger' : ''}`;
+          item.textContent = danger ? `[${timeStr}] ${sat.label} alert: ${sat.name}` : `[${timeStr}] ${sat.label} track: ${sat.name}`;
+          feed.prepend(item);
+          while (feed.children.length > 7) feed.removeChild(feed.lastChild);
+        }, 1800));
+      }
+
+      function stopDashboardFeeds() {
+        window.dashboardIntervals.forEach(clearInterval);
+        window.dashboardIntervals = [];
+      }
+
+      document.getElementById('enter-btn')?.addEventListener('click', () => {
+        document.getElementById('intro-overlay')?.classList.add('hidden');
+      });
+
+      document.getElementById('speed-slider')?.addEventListener('input', (e) => {
+        timeMultiplier = Number(e.target.value);
+        safeSetText('speed-val', `${timeMultiplier}x`);
+      });
+
+      document.getElementById('trail-slider')?.addEventListener('input', (e) => {
+        const seconds = Number(e.target.value);
+        safeSetText('trail-val', `${seconds}s`);
+        if (trailsMaterial) trailsMaterial.uniforms.uTrailLengthMins.value = seconds / 60;
+      });
+
+      document.getElementById('play-pause-btn')?.addEventListener('click', (e) => {
+        simulationPaused = !simulationPaused;
+        if (controls) controls.autoRotate = !simulationPaused;
+        e.currentTarget.textContent = simulationPaused ? 'Play' : 'Pause';
+      });
+
+      document.getElementById('reset-time-btn')?.addEventListener('click', () => {
+        simulatedTime = new Date();
+        simStartTimeMs = simulatedTime.getTime();
+        simulationPaused = false;
+        if (controls) controls.autoRotate = true;
+        safeSetText('play-pause-btn', 'Pause');
+      });
+
+      document.getElementById('ground-toggle-btn')?.addEventListener('click', (e) => {
+        groundSitesVisible = !groundSitesVisible;
+        if (groundSitesGroup) groundSitesGroup.visible = groundSitesVisible;
+        e.currentTarget.classList.toggle('active', groundSitesVisible);
+      });
+
+      document.querySelectorAll('.pill').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          document.querySelectorAll('.pill').forEach((el) => el.classList.remove('active'));
+          event.currentTarget.classList.add('active');
+          currentFilter = Number(event.currentTarget.dataset.filter || 0);
+          rebuildTrailMesh();
+        });
+      });
+
+      runTests();
+      init3D();
+      animate();
+      startDashboardFeeds();
+    }
+  </script>
+</body>
+</html>
