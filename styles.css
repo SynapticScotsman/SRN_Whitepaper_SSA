@@ -246,12 +246,53 @@ body[data-hero="counter"] .hero-v-counter { opacity: 1; }
   font-weight: 300;
 }
 .hero-standfirst {
-  font-size: clamp(17px, 1.5vw, 21px);
-  line-height: 1.5;
+  font-size: clamp(15px, 1.3vw, 18px);
+  line-height: 1.55;
   max-width: 62ch;
   color: var(--fg);
-  margin: 0 0 36px;
+  margin: 0 0 28px;
   font-weight: 300;
+}
+.hero-three-panels {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--rule-strong);
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  overflow: hidden;
+  max-width: 640px;
+  margin-bottom: 32px;
+}
+.hero-panel {
+  background: rgba(0,0,0,0.45);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hero-panel-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.hero-panel-stat {
+  font-family: var(--serif);
+  font-size: 22px;
+  font-style: italic;
+  color: var(--fg);
+  line-height: 1.1;
+}
+.hero-panel-desc {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--fg-dim);
+  line-height: 1.4;
+}
+@media (max-width: 500px) {
+  .hero-three-panels { grid-template-columns: 1fr; }
 }
 .hero-meta {
   display: flex; flex-wrap: wrap; gap: 8px 36px;
@@ -961,67 +1002,98 @@ body[data-hero="counter"] .hero-v-counter { opacity: 1; }
 /* ============ Leakage Loop ============ */
 .leakage-wrap {
   max-width: var(--max);
-  margin: 0 auto;
-  border: 1px solid var(--rule);
-  background: #000;
-  overflow: visible;
+  margin: 48px auto 0;
+  padding: 0 var(--pad) 40px;
 }
-.leakage-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
+.leakage-cycle {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
 }
-.leakage-arrow {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.5;
-  stroke-dasharray: 8 5;
-  stroke-dashoffset: 0;
-  animation: leakage-flow 3s linear infinite;
-  opacity: 0.7;
+.leakage-node-card {
+  flex: 1;
+  background: color-mix(in oklab, var(--accent) 6%, var(--bg));
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-#la-2 { animation-delay: -1s; }
-#la-3 { animation-delay: -2s; }
-@keyframes leakage-flow {
-  to { stroke-dashoffset: -52; }
+.leakage-node-highlight {
+  background: color-mix(in oklab, var(--danger) 12%, var(--bg));
+  border-color: var(--danger);
 }
-.leakage-head { fill: var(--accent); opacity: 0.7; }
-.leakage-hex {
-  fill: rgba(7,12,21,0.9);
-  stroke: var(--accent);
-  stroke-width: 1.5;
-}
-.leakage-node-num {
+.leakage-node-highlight .leakage-num { color: var(--danger); }
+.leakage-num {
   font-family: var(--serif);
-  font-size: 11px;
   font-style: italic;
-  fill: var(--accent);
-  text-anchor: middle;
-  letter-spacing: 0.05em;
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
 }
-.leakage-node-label {
+.leakage-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.leakage-desc {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--fg-dim);
+  line-height: 1.55;
+  margin: 0;
+}
+.leakage-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  flex-shrink: 0;
+}
+.leakage-conn-arrow {
+  font-size: 20px;
+  color: var(--accent);
+  line-height: 1;
+}
+.leakage-conn-tag {
   font-family: var(--mono);
   font-size: 9px;
-  letter-spacing: 0.18em;
   text-transform: uppercase;
-  fill: var(--fg);
-  text-anchor: middle;
+  letter-spacing: 0.12em;
+  color: var(--fg-faint);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
 }
-.leakage-node-sub {
+.leakage-return-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+.leakage-return-line {
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklab, var(--danger) 40%, transparent);
+  border-top: 1px dashed color-mix(in oklab, var(--danger) 40%, transparent);
+}
+.leakage-return-label {
   font-family: var(--mono);
-  font-size: 8px;
-  fill: var(--fg-dim);
-  text-anchor: middle;
-  letter-spacing: 0.03em;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--danger);
+  white-space: nowrap;
 }
-.leakage-centre {
-  font-family: var(--serif);
-  font-size: 18px;
-  font-style: italic;
-  fill: var(--fg-dim);
-  text-anchor: middle;
-  letter-spacing: -0.01em;
+@media (max-width: 680px) {
+  .leakage-cycle { flex-direction: column; }
+  .leakage-connector { flex-direction: row; padding: 8px 0; }
+  .leakage-conn-tag { writing-mode: horizontal-tb; transform: none; }
 }
 
 /* ============ ARC funding chart ============ */

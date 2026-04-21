@@ -578,9 +578,10 @@
   });
 })();
 
-/* ============ Recommendations ============ */
+/* ============ Recommendations (legacy rec-list fallback) ============ */
 (function recs(){
   const ol = document.getElementById('rec-list');
+  if (!ol) return;
   window.SSA_DATA.recommendations.forEach((r, i) => {
     const li = document.createElement('li');
     li.className = 'rec-item';

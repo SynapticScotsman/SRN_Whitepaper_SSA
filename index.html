@@ -87,12 +87,29 @@
       </div>
       <div class="hero-brand-title">Connecting the Constellation</div>
       <h1 class="hero-title">
-        <span class="hero-quiet">How Australia sees the sky</span>
-        And why it must see it <em>better.</em>
+        <span class="hero-quiet">Australia holds the critical vantage point</span>
+        for an increasingly <em>congested orbit.</em>
       </h1>
       <p class="hero-standfirst">
-        Behind every satellite pass over Australia are more than <strong style="color:var(--accent)">16,000 active spacecraft</strong> and an orbital environment growing faster than any governance framework can track. Australia holds a globally distinctive position — but only if it chooses to connect the capability it already has.
+        More than <strong style="color:var(--accent)">16,000 active satellites</strong> now crowd low Earth orbit — two-thirds owned by a single company. Megaconstellations are reshaping the risk of cascading collision. The Southern Hemisphere, radio-quiet Australian interior, and NASA Artemis commitments give Australia a unique observation window the world depends on. The question is whether Australia will act as a <em>rule-shaper</em> or a rule-taker.
       </p>
+      <div class="hero-three-panels">
+        <div class="hero-panel">
+          <div class="hero-panel-label">The Threat</div>
+          <div class="hero-panel-stat">16,000+</div>
+          <div class="hero-panel-desc">active satellites — and doubling within four years</div>
+        </div>
+        <div class="hero-panel">
+          <div class="hero-panel-label">The Catalyst</div>
+          <div class="hero-panel-stat">Kessler</div>
+          <div class="hero-panel-desc">megaconstellations push cascading collision from theory to risk</div>
+        </div>
+        <div class="hero-panel">
+          <div class="hero-panel-label">The Advantage</div>
+          <div class="hero-panel-stat">Southern</div>
+          <div class="hero-panel-desc">hemisphere vantage — radio-quiet, Artemis-committed, sensor-rich</div>
+        </div>
+      </div>
       <div class="hero-meta">
         <div><span class="meta-k">Authors</span><span class="meta-v">Paul Kirkland · Doris Grosse · Yang Yang</span></div>
         <div><span class="meta-k">Coordinator</span><span class="meta-v">Margaret Hudson · NSW SRN</span></div>
@@ -151,50 +168,38 @@
       </div>
     </div>
     <div class="leakage-wrap">
-      <svg class="leakage-svg" viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" id="leakage-svg">
-        <!-- arrows: Collect → Export → BuyBack → Collect -->
-        <!-- Collect → Export (top-left to top-right arc) -->
-        <path class="leakage-arrow" id="la-1" d="M 310,140 C 380,80 520,80 590,140" fill="none"/>
-        <!-- Export → BuyBack (top-right to bottom arc) -->
-        <path class="leakage-arrow" id="la-2" d="M 620,200 C 660,300 560,370 450,370" fill="none"/>
-        <!-- BuyBack → Collect (bottom to top-left arc) -->
-        <path class="leakage-arrow" id="la-3" d="M 340,370 C 220,370 140,300 200,200" fill="none"/>
-        <!-- arrowheads -->
-        <polygon class="leakage-head" points="590,140 574,122 606,126" />
-        <polygon class="leakage-head" points="450,370 437,354 463,351" />
-        <polygon class="leakage-head" points="200,200 183,206 190,180" />
-        <!-- node: Collect -->
-        <g class="leakage-node" id="ln-collect">
-          <polygon class="leakage-hex" points="230,100 270,80 310,100 310,140 270,160 230,140"/>
-          <text class="leakage-node-num" x="270" y="114">01</text>
-          <text class="leakage-node-label" x="270" y="132">COLLECT</text>
-          <text class="leakage-node-sub" x="270" y="186">Australia collects premium</text>
-          <text class="leakage-node-sub" x="270" y="202">orbital data via foreign-</text>
-          <text class="leakage-node-sub" x="270" y="218">owned ground sensors.</text>
-        </g>
-        <!-- node: Export -->
-        <g class="leakage-node" id="ln-export">
-          <polygon class="leakage-hex" points="590,100 630,80 670,100 670,140 630,160 590,140"/>
-          <text class="leakage-node-num" x="630" y="114">02</text>
-          <text class="leakage-node-label" x="630" y="132">EXPORT</text>
-          <text class="leakage-node-sub" x="630" y="186">Raw data exported overseas</text>
-          <text class="leakage-node-sub" x="630" y="202">for processing — Australia</text>
-          <text class="leakage-node-sub" x="630" y="218">lacks a sovereign catalogue.</text>
-        </g>
-        <!-- node: Buy Back -->
-        <g class="leakage-node" id="ln-buyback">
-          <polygon class="leakage-hex" points="410,330 450,310 490,330 490,370 450,390 410,370"/>
-          <text class="leakage-node-num" x="450" y="344">03</text>
-          <text class="leakage-node-label" x="450" y="362">BUY BACK</text>
-          <text class="leakage-node-sub" x="450" y="408">Australia purchases the</text>
-          <text class="leakage-node-sub" x="450" y="424">processed data back</text>
-          <text class="leakage-node-sub" x="450" y="440">at a premium.</text>
-        </g>
-        <!-- centre label -->
-        <text class="leakage-centre" x="450" y="222">The</text>
-        <text class="leakage-centre" x="450" y="248">Leakage</text>
-        <text class="leakage-centre" x="450" y="274">Loop</text>
-      </svg>
+      <div class="leakage-cycle">
+        <div class="leakage-node-card" id="ln-collect">
+          <div class="leakage-num">01</div>
+          <div class="leakage-label">COLLECT</div>
+          <p class="leakage-desc">Australia's world-class ground sensors — SST, DARC, MWA — capture premium orbital data 24/7.</p>
+        </div>
+        <div class="leakage-connector">
+          <span class="leakage-conn-line"></span>
+          <span class="leakage-conn-arrow">→</span>
+          <span class="leakage-conn-tag">exported raw</span>
+        </div>
+        <div class="leakage-node-card" id="ln-export">
+          <div class="leakage-num">02</div>
+          <div class="leakage-label">EXPORT</div>
+          <p class="leakage-desc">Without a sovereign catalogue or processing pipeline, the raw data leaves the country.</p>
+        </div>
+        <div class="leakage-connector">
+          <span class="leakage-conn-line"></span>
+          <span class="leakage-conn-arrow">→</span>
+          <span class="leakage-conn-tag">sold back at a premium</span>
+        </div>
+        <div class="leakage-node-card leakage-node-highlight" id="ln-buyback">
+          <div class="leakage-num">03</div>
+          <div class="leakage-label">BUY BACK</div>
+          <p class="leakage-desc">Australia purchases the processed product — conjunction alerts, catalogues — from the same overseas providers.</p>
+        </div>
+      </div>
+      <div class="leakage-return-row">
+        <span class="leakage-return-line"></span>
+        <span class="leakage-return-label">↩ cycle repeats — value-add occurs overseas</span>
+        <span class="leakage-return-line"></span>
+      </div>
     </div>
   </section>
 
