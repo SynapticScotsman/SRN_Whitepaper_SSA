@@ -581,13 +581,16 @@
 /* ============ Recommendations ============ */
 (function recs(){
   const ol = document.getElementById('rec-list');
-  window.SSA_DATA.recommendations.forEach(r => {
+  window.SSA_DATA.recommendations.forEach((r, i) => {
     const li = document.createElement('li');
     li.className = 'rec-item';
     li.innerHTML = `
-      <div></div>
-      <h3 class="rec-title">${r.title}</h3>
-      <div class="rec-body"><p>${r.body}</p><span class="rec-tag">${r.tag}</span></div>
+      <div class="rec-num" aria-hidden="true">${String(i + 1).padStart(2, '0')}</div>
+      <div class="rec-content">
+        <h3 class="rec-title">${r.title}</h3>
+        <p class="rec-body">${r.body}</p>
+        <span class="rec-tag">${r.tag}</span>
+      </div>
     `;
     ol.appendChild(li);
   });
@@ -647,4 +650,19 @@
     });
     el.addEventListener('mouseleave', () => tt.classList.remove('is-on'));
   });
+})();
+
+/* ============ Tracker embed — click to activate ============ */
+(function trackerEmbed(){
+  const frame = document.querySelector('.tracker-embed-frame');
+  const shield = document.querySelector('.tracker-embed-click-shield');
+  if (!frame || !shield) return;
+  shield.addEventListener('click', () => {
+    frame.classList.add('is-active');
+  });
+  // deactivate when user scrolls away so page scroll works again
+  const io = new IntersectionObserver((ents) => {
+    ents.forEach(e => { if (!e.isIntersecting) frame.classList.remove('is-active'); });
+  }, { threshold: 0 });
+  io.observe(frame);
 })();
