@@ -1,4 +1,4 @@
-/* Data for SSA whitepaper site */
+﻿/* Data for SSA whitepaper site */
 window.SSA_DATA = {
   // Map sites (x,y in 900x520 viewBox)
   sites: [
@@ -32,7 +32,7 @@ window.SSA_DATA = {
     { nation: 'ESA / EU', spend: '€955M (3y)', cap: 'EU SST consortium across 15 states. ClearSpace-1 debris removal. Zero Debris Charter.', lesson: 'Networked multi-national model validates coordination over scale.' },
     { nation: 'France', spend: '~€30M GRAVES', cap: 'GRAVES bistatic radar. Space Command 500 personnel Toulouse. AsterX exercise with 15 partners.', lesson: 'Military space exercise model. Australia already participates.' },
     { nation: 'Germany', spend: 'GSSAC ops', cap: 'Civil-military co-location (Bundeswehr + DLR). TIRA radar, GESTRA, iSpace catalogue.', lesson: 'Co-location works without large budgets.' },
-    { nation: 'Canada', spend: 'C$96.4M', cap: 'Only Five Eyes space-based SSA sensor (Sapphire). 12,000+ objects imaged monthly since 2013.', lesson: 'Space-based SSA precedent within Five Eyes — model for Inovor Hyperion.' },
+    { nation: 'Canada', spend: 'C$96.4M', cap: 'Only Five Eyes space-based SSA sensor (Sapphire). 12,000+ objects imaged monthly since 2013.', lesson: 'Space-based SSA precedent within Five Eyes, a model for Inovor Hyperion.' },
     { nation: 'Japan', spend: 'FY22 upgrade', cap: 'Kamisaibara radar: 10 cm objects at 650 km. 10,000 obs/day (50x increase).', lesson: 'Rapid capability uplift through radar modernisation.' },
     { nation: 'New Zealand', spend: 'Growing', cap: 'Pacific Cell lead in JCO. Rocket Lab infrastructure. SmartSat–MBIE collaboration (2024).', lesson: 'Small nations can anchor major operational roles.' }
   ],
@@ -40,7 +40,7 @@ window.SSA_DATA = {
   recommendations: [
     {
       title: 'Establish a national SSA/SDA coordination body by 2028.',
-      body: 'Modelled on the UK National Space Operations Centre (NSpOC). Must plan for the SmartSat CRC transition — the primary civil-defence coordination mechanism currently in its final year of Commonwealth funding.',
+      body: 'Modelled on the UK National Space Operations Centre (NSpOC). Must plan for the SmartSat CRC transition, the primary civil-defence coordination mechanism currently in its final year of Commonwealth funding.',
       tag: 'Foundational'
     },
     {
@@ -50,12 +50,12 @@ window.SSA_DATA = {
     },
     {
       title: 'Develop an Australian Space Traffic Management policy by 2028.',
-      body: 'The Space (Launches and Returns) Act 2018 does not address on-orbit coordination. With STM frameworks being shaped internationally — including the Cologne Manual — developing Australia\u2019s position now is how the country becomes a rule-shaper rather than a rule-taker.',
+      body: 'The Space (Launches and Returns) Act 2018 does not address on-orbit coordination. With STM frameworks being shaped internationally, including the Cologne Manual, developing Australia\u2019s position now is how the country becomes a rule-shaper rather than a rule-taker.',
       tag: 'Policy'
     },
     {
       title: 'Reform FOR codes within the current ANZSRC review cycle.',
-      body: 'The FOR code system does not recognise space engineering as distinct from aerospace. ARC funding analysis reveals very limited SSA-specific awards with multiple zero-award years — a visibility problem as much as a capability one.',
+      body: 'The FOR code system does not recognise space engineering as distinct from aerospace. ARC funding analysis reveals very limited SSA-specific awards with multiple zero-award years, a visibility problem as much as a capability one.',
       tag: 'Classification'
     },
     {
@@ -69,31 +69,31 @@ window.SSA_DATA = {
     { year: 2019, milestone: true, title: 'Civil Space Strategy', detail: 'Australian Space Agency identifies SSA and debris monitoring as one of seven national priority areas.' },
     { year: 2020, title: 'JP9360 launched', detail: 'Defence acquisition programme consolidates six projects into a rolling SDA capability build across all orbital regimes.' },
     { year: 2020, milestone: true, title: 'SST first light at Exmouth', detail: 'Space Surveillance Telescope captures first image, 5 March 2020. First SSN sensor in the Southern Hemisphere.' },
-    { year: 2021, title: 'M2 CubeSat carries neuromorphic cameras to orbit', detail: 'UNSW Canberra / DSTG — first Australian in-orbit SSA sensor demonstration.' },
+    { year: 2021, title: 'M2 CubeSat carries neuromorphic cameras to orbit', detail: 'UNSW Canberra / DSTG, first Australian in-orbit SSA sensor demonstration.' },
     { year: 2022, milestone: true, title: 'Defence Space Command established', detail: '18 January 2022. 1 Space Surveillance Unit operates SST, C-Band radar, and will operate DARC.' },
     { year: 2022, title: 'SST reaches initial operational capability', detail: '4 October 2022. Boeing–ExoAnalytic JP9360 optical network established for the RAAF across 10+ sites.' },
     { year: 2023, milestone: true, title: 'DARC breaks ground', detail: 'AUKUS Deep Space Advanced Radar Capability construction begins at Exmouth. US$341M Northrop Grumman contract.' },
-    { year: 2024, title: 'DARC construction complete', detail: '27-antenna array at Exmouth completed December 2024 — three months ahead of schedule.' },
+    { year: 2024, title: 'DARC construction complete', detail: '27-antenna array at Exmouth completed December 2024, three months ahead of schedule.' },
     { year: 2024, title: 'ASA–US Office of Space Commerce cooperation', detail: 'Statement of Intent signed on re-entry monitoring at IAC 2024, Milan.' },
     { year: 2025, milestone: true, title: 'DARC tracks GEO · SST reaches full OC', detail: 'Seven antennas successfully track multiple GEO satellites. SST reaches full operational capability, August 2025.' },
-    { year: 2025, title: 'ESA commits €955M to Space Safety at CM25', detail: '30% increase signalled by the November 2025 Ministerial Council — a benchmark for allied investment.' },
+    { year: 2025, title: 'ESA commits €955M to Space Safety at CM25', detail: '30% increase signalled by the November 2025 Ministerial Council, a benchmark for allied investment.' },
     { year: 2026, milestone: true, title: 'Continuum-1 RPO announced', detail: "HEO / UNSW Canberra announce Australia's first sovereign satellite rendezvous and proximity operations mission, February 2026." },
-    { year: 2026, title: 'Starlink passes 10,000', detail: '10,020 Starlink satellites active as of 17 March 2026 — roughly two-thirds of all active spacecraft.' }
+    { year: 2026, title: 'Starlink passes 10,000', detail: '10,020 Starlink satellites active as of 17 March 2026, roughly two-thirds of all active spacecraft.' }
   ],
 
   glossary: [
     { term: 'SSA', short: 'Space Situational Awareness', def: 'The ability to detect, track, and predict the behaviour of objects in Earth orbit. Underpins safe, secure, and sustainable access to space.' },
-    { term: 'SDA', short: 'Space Domain Awareness', def: 'The defence-flavoured sibling of SSA — adds intent assessment and threat characterisation to detection and tracking.' },
+    { term: 'SDA', short: 'Space Domain Awareness', def: 'The defence-flavoured sibling of SSA, adding intent assessment and threat characterisation to detection and tracking.' },
     { term: 'Kessler syndrome', short: 'Cascading collision', def: 'A scenario proposed by Donald J. Kessler in 1978 in which the density of objects in LEO becomes high enough that collisions generate debris that cause further collisions.' },
-    { term: 'LEO / MEO / GEO', short: 'Orbital shells', def: 'Low Earth Orbit (160–2,000 km), Medium Earth Orbit (2,000–35,000 km), and Geostationary Orbit (35,786 km) — the three operational shells where most spacecraft reside.' },
-    { term: 'DARC', short: 'Deep Space Advanced Radar', data: 'darc', def: 'Deep Space Advanced Radar Capability — AUKUS-funded 27-antenna radar at Exmouth, WA, for tracking objects in geosynchronous orbit.' },
+    { term: 'LEO / MEO / GEO', short: 'Orbital shells', def: 'Low Earth Orbit (160–2,000 km), Medium Earth Orbit (2,000–35,000 km), and Geostationary Orbit (35,786 km), the three operational shells where most spacecraft reside.' },
+    { term: 'DARC', short: 'Deep Space Advanced Radar', data: 'darc', def: 'Deep Space Advanced Radar Capability, AUKUS-funded 27-antenna radar at Exmouth, WA, for tracking objects in geosynchronous orbit.' },
     { term: 'Passive radar', short: 'No-emission surveillance', data: 'passive', def: 'A radar technique that uses reflections of commercial broadcast signals (e.g. FM radio) rather than emitting its own signal. No spectrum licence; all-weather; 24/7.' },
     { term: 'Event-based camera', short: 'Neuromorphic sensor', data: 'event', def: 'A sensor that reports only changes in brightness at each pixel rather than capturing full frames. Enables microsecond-precision tracking with dramatically lower data volumes.' },
     { term: 'Conjunction', short: 'Close approach', def: 'A predicted close pass between two orbiting objects. Operators receive conjunction data messages and decide whether a collision-avoidance manoeuvre is justified.' },
     { term: 'STM', short: 'Space Traffic Management', def: 'Rules and procedures for coordinating activity in orbit. Analogous to air traffic management but without a universally accepted framework.' },
-    { term: 'Starlink', short: 'SpaceX megaconstellation', data: 'starlink', def: '10,020 active satellites as of 17 March 2026 — roughly two-thirds of all active spacecraft in orbit.' },
+    { term: 'Starlink', short: 'SpaceX megaconstellation', data: 'starlink', def: '10,020 active satellites as of 17 March 2026, roughly two-thirds of all active spacecraft in orbit.' },
     { term: 'JCO', short: 'Joint Commercial Office', def: 'A 20-nation "follow-the-sun" SDA fusion model with three cells: Pacific (NZ lead), Meridian (UK lead), and Americas (US lead).' },
-    { term: 'FOR codes', short: 'Field of Research', def: 'ANZSRC taxonomy used to classify research. Places all space engineering under a single aerospace code — 510901 Astrodynamics and SSA is the only code to explicitly name the field.' }
+    { term: 'FOR codes', short: 'Field of Research', def: 'ANZSRC taxonomy used to classify research. Places all space engineering under a single aerospace code. 510901 Astrodynamics and SSA is the only code to explicitly name the field.' }
   ],
 
   arcFunding: [
@@ -136,16 +136,17 @@ window.SSA_DATA = {
 
   coordinationMatrix: [
     { num: '01', title: 'National Coordination Body', deadline: 'By 2028',             body: 'Establish a UK NSpOC-style central hub integrating civil, defence, and academic inputs. Plan for SmartSat CRC funding transition now.', tag: 'Foundational' },
-    { num: '02', title: 'Sovereign Catalogue',        deadline: 'Within 3 years',      body: 'Build a tiered-access national space object data framework. Australia currently has no sovereign catalogue — raw data is exported and bought back at premium.', tag: 'Data' },
-    { num: '03', title: 'Develop STM Policy',         deadline: 'By 2028',             body: 'Establish an Australian Space Traffic Management framework. International STM rules are being written now — act as a rule-shaper, not a rule-taker.', tag: 'Policy' },
-    { num: '04', title: 'Reform FOR Codes',           deadline: 'Current review cycle', body: 'Separate space engineering from aerospace to unblock the ARC research funding pipeline. 510901 is the only code that explicitly names SSA — it needs visibility.', tag: 'Classification' },
+    { num: '02', title: 'Sovereign Catalogue',        deadline: 'Within 3 years',      body: 'Build a tiered-access national space object data framework. Australia currently has no sovereign catalogue, raw data is exported and bought back at premium.', tag: 'Data' },
+    { num: '03', title: 'Develop STM Policy',         deadline: 'By 2028',             body: 'Establish an Australian Space Traffic Management framework. International STM rules are being written now. Act as a rule-shaper, not a rule-taker.', tag: 'Policy' },
+    { num: '04', title: 'Reform FOR Codes',           deadline: 'Current review cycle', body: 'Separate space engineering from aerospace to unblock the ARC research funding pipeline. 510901 is the only code that explicitly names SSA, and it needs visibility.', tag: 'Classification' },
     { num: '05', title: 'Invest in Sovereign Sensors',deadline: 'Within 5 years',      body: 'Procure and deploy neuromorphic and passive radar technologies domestically. Both are Australian-developed, proven, and arms-restriction-free.', tag: 'Capability' }
   ],
 
   outcomes: [
-    { title: 'Space Safety',           body: 'Better tracking protects the orbital environment for all users — commercial, civil, and military.' },
+    { title: 'Space Safety',           body: 'Better tracking protects the orbital environment for all users, commercial, civil, and military.' },
     { title: 'Commercial Growth',      body: 'Sovereign data access opens global procurement pathways for Australian firms currently forced to establish overseas offices.' },
     { title: 'National Security',      body: 'Civil SSA directly strengthens Defence Space Domain Awareness with no duplicated capability.' },
     { title: 'International Influence',body: 'Sovereign sensors make Australia a vital, non-reliant partner across Five Eyes and allied SSA networks.' }
   ]
 };
+

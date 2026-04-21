@@ -969,9 +969,10 @@ body[data-hero="counter"] .hero-v-counter { opacity: 1; }
   margin: 0 0 28px;
   max-width: 54ch;
 }
-.hero-subtitle-gold {
+.hero-subtitle-gold,
+.hero-subtitle-accent {
   color: var(--accent);
-  font-weight: 400;
+  font-weight: 500;
 }
 
 /* ============ Thesis pullquote ============ */

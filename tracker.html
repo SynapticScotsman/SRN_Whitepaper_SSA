@@ -215,6 +215,19 @@
     }
 
     .tiny { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+    /* Embed mode: hide brand, collapse stats + controls to minimal bar */
+    body.embed-mode #brand-box { display: none; }
+    body.embed-mode .stats-panel { display: none; }
+    body.embed-mode .control-bar {
+      padding: 8px 12px;
+      gap: 10px 14px;
+      font-size: 11px;
+    }
+    body.embed-mode .control-bar .range-wrap { min-width: 100px; }
+    body.embed-mode .hud-top { top: 10px; left: 10px; right: 10px; }
+    body.embed-mode .hud-bottom { bottom: 10px; left: 10px; right: 10px; }
+    body.embed-mode #side-sheet { max-height: 40vh; overflow-y: auto; }
     .range-wrap { display: flex; align-items: center; gap: 10px; min-width: 140px; }
 
     input[type="range"] {
@@ -1263,12 +1276,10 @@
         document.getElementById('intro-overlay')?.classList.add('hidden');
       });
 
-      // Auto-dismiss intro when embedded via ?embed=1
+      // Auto-dismiss intro + compact UI when embedded via ?embed=1
       if (new URLSearchParams(location.search).get('embed') === '1') {
         document.getElementById('intro-overlay')?.classList.add('hidden');
-        // Compact the brand box so it doesn't obscure the globe
-        const bb = document.getElementById('brand-box');
-        if (bb) bb.style.display = 'none';
+        document.body.classList.add('embed-mode');
       }
 
       document.getElementById('speed-slider')?.addEventListener('input', (e) => {

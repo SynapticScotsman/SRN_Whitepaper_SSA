@@ -90,71 +90,189 @@
     resize();
     window.addEventListener('resize', resize);
 
-    const stars = Array.from({length: 240}, () => ({
-      x: Math.random(), y: Math.random(), s: Math.random() * 1.2 + 0.2, t: Math.random() * Math.PI * 2
+    const stars = Array.from({length: 180}, () => ({
+      x: Math.random(), y: Math.random(), s: Math.random() * 1.1 + 0.2, t: Math.random() * Math.PI * 2
     }));
 
-    let raf;
+    // Orbit definitions: [radiusFactor, tilt, speed, satCount, color, label, dotted]
+    const orbits = [
+      { rf: 1.12, tilt: -0.38, spd: 0.00022, n: 5, col: [125,211,252], lbl: 'LEO', dotted: false },
+      { rf: 1.26, tilt: -0.28, spd: 0.00012, n: 3, col: [125,211,252], lbl: 'MEO', dotted: true  },
+      { rf: 1.48, tilt: -0.15, spd: 0.00005, n: 2, col: [125,211,252], lbl: 'GEO', dotted: true  },
+    ];
+
+    // Named satellites for callout labels
+    const namedSats = [
+      { orbit: 0, k: 0, id: 'DARC-01' },
+      { orbit: 0, k: 2, id: 'TRK-09'  },
+      { orbit: 1, k: 0, id: 'SAT-A11' },
+      { orbit: 2, k: 1, id: 'GEO-03'  },
+    ];
+
+    function ellipsePoint(cx, cy, rx, ry, tilt, a) {
+      const cos = Math.cos(tilt), sin = Math.sin(tilt);
+      const ex = Math.cos(a) * rx, ey = Math.sin(a) * ry;
+      return { x: cx + ex * cos - ey * sin, y: cy + ex * sin + ey * cos };
+    }
+
+    function drawCrosshair(x, y, sz, alpha, highlighted) {
+      const arm = sz;
+      const gap = sz * 0.35;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = highlighted ? 'rgba(255,200,100,0.95)' : 'rgba(125,211,252,0.85)';
+      ctx.lineWidth = highlighted ? 1.2 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(x - arm, y); ctx.lineTo(x - gap, y);
+      ctx.moveTo(x + gap, y); ctx.lineTo(x + arm, y);
+      ctx.moveTo(x, y - arm); ctx.lineTo(x, y - gap);
+      ctx.moveTo(x, y + gap); ctx.lineTo(x, y + arm);
+      ctx.stroke();
+      if (highlighted) {
+        // corner bracket
+        const b = sz * 0.9;
+        ctx.strokeStyle = 'rgba(255,200,100,0.6)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        [-1,1].forEach(sx => [-1,1].forEach(sy => {
+          ctx.moveTo(x + sx*(b), y + sy*(b*0.4));
+          ctx.lineTo(x + sx*(b), y + sy*(b));
+          ctx.lineTo(x + sx*(b*0.4), y + sy*(b));
+        }));
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawCallout(x, y, label, side, alpha) {
+      const lineLen = 22;
+      const dx = side === 'r' ? lineLen : -lineLen;
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.85;
+      ctx.strokeStyle = 'rgba(125,211,252,0.55)';
+      ctx.lineWidth = 0.7;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + dx, y - 10);
+      ctx.lineTo(x + dx + (side === 'r' ? 18 : -18), y - 10);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(125,211,252,0.9)';
+      ctx.font = `500 9px 'IBM Plex Mono', monospace`;
+      ctx.textAlign = side === 'r' ? 'left' : 'right';
+      ctx.fillText(label, x + dx + (side === 'r' ? 20 : -20), y - 7);
+      ctx.restore();
+    }
+
     function draw(t) {
-      const cx = w * 0.75, cy = h * 0.55;
-      const R = Math.min(w, h) * 0.38;
+      const cx = w * 0.72, cy = h * 0.52;
+      const R = Math.min(w, h) * 0.36;
 
       ctx.clearRect(0, 0, w, h);
-      // bg
       ctx.fillStyle = '#05070d';
       ctx.fillRect(0, 0, w, h);
 
       // stars
       for (const s of stars) {
-        const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(t * 0.001 + s.t));
-        ctx.fillStyle = `rgba(232,236,241,${0.15 + 0.5 * tw})`;
+        const tw = 0.5 + 0.5 * Math.sin(t * 0.0006 + s.t);
+        ctx.fillStyle = `rgba(232,236,241,${(0.1 + 0.35 * tw).toFixed(2)})`;
         ctx.fillRect(s.x * w, s.y * h, s.s, s.s);
       }
 
       // earth disc
-      const g = ctx.createRadialGradient(cx - R*0.3, cy - R*0.3, R*0.2, cx, cy, R);
-      g.addColorStop(0, '#1b2a3d');
-      g.addColorStop(0.7, '#0a1220');
+      const g = ctx.createRadialGradient(cx - R*0.28, cy - R*0.22, R*0.15, cx, cy, R);
+      g.addColorStop(0, '#1e3250');
+      g.addColorStop(0.55, '#0d1c30');
       g.addColorStop(1, '#05070d');
-      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.fillStyle = g; ctx.fill();
 
-      // terminator rim
+      // atmosphere glow ring
+      const atm = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.06);
+      atm.addColorStop(0, 'rgba(80,160,230,0.14)');
+      atm.addColorStop(1, 'rgba(80,160,230,0)');
+      ctx.beginPath(); ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2);
+      ctx.fillStyle = atm; ctx.fill();
+
+      // continent outlines (simplified blobby shapes)
       ctx.save();
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.clip();
-      const rim = ctx.createRadialGradient(cx + R*0.1, cy + R*0.1, R*0.7, cx, cy, R*1.0);
-      rim.addColorStop(0, 'rgba(0,0,0,0)');
-      rim.addColorStop(1, 'rgba(130,180,230,0.18)');
-      ctx.fillStyle = rim; ctx.fillRect(cx-R, cy-R, R*2, R*2);
+      ctx.fillStyle = 'rgba(40,90,140,0.22)';
+      const continents = [
+        // Australia rough shape
+        [[-0.05,0.18],[0.08,0.10],[0.18,0.12],[0.22,0.28],[0.12,0.36],[0.0,0.34]],
+        // Asia blob
+        [[-0.28,-0.32],[-0.08,-0.28],[0.05,-0.18],[-0.02,-0.05],[-0.22,-0.08]],
+        // Africa
+        [[-0.32,0.04],[-0.20,-0.08],[-0.10,0.0],[-0.12,0.30],[-0.28,0.22]],
+        // Europe
+        [[-0.30,-0.22],[-0.18,-0.28],[-0.14,-0.16],[-0.24,-0.12]],
+      ];
+      for (const pts of continents) {
+        ctx.beginPath();
+        pts.forEach(([px,py],i) => {
+          const nx = cx + px * R * 1.6, ny = cy + py * R * 1.6;
+          i === 0 ? ctx.moveTo(nx,ny) : ctx.lineTo(nx,ny);
+        });
+        ctx.closePath(); ctx.fill();
+      }
       ctx.restore();
 
-      // orbit rings
-      for (let i = 0; i < 3; i++) {
-        const rr = R * (1.08 + i * 0.09);
-        ctx.strokeStyle = `rgba(232,236,241,${0.12 - i*0.03})`;
-        ctx.lineWidth = 1;
+      // orbit ellipses
+      for (const orb of orbits) {
+        const rx = R * orb.rf, ry = rx * 0.22;
+        ctx.save();
+        ctx.strokeStyle = `rgba(125,211,252,0.14)`;
+        ctx.lineWidth = 0.8;
+        if (orb.dotted) ctx.setLineDash([5, 7]);
         ctx.beginPath();
-        ctx.ellipse(cx, cy, rr, rr * 0.22, -0.45, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, rx, ry, orb.tilt, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
       }
 
-      // moving satellites along rings
-      for (let i = 0; i < 3; i++) {
-        const rr = R * (1.08 + i * 0.09);
-        const speed = 0.0002 + i * 0.00008;
-        for (let k = 0; k < 6; k++) {
-          const a = t * speed + k * (Math.PI * 2 / 6) + i;
-          const x = cx + Math.cos(a) * rr;
-          const y = cy + Math.sin(a) * rr * 0.22 * Math.cos(-0.45) - Math.sin(a) * 0 ;
-          // rotated ellipse point
-          const rot = -0.45;
-          const px = cx + Math.cos(a) * rr * Math.cos(rot) - Math.sin(a) * rr * 0.22 * Math.sin(rot);
-          const py = cy + Math.cos(a) * rr * Math.sin(rot) + Math.sin(a) * rr * 0.22 * Math.cos(rot);
-          ctx.fillStyle = 'rgba(170,210,255,0.9)';
-          ctx.fillRect(px - 1, py - 1, 2, 2);
+      // satellites + trails
+      const satPositions = {};
+      for (let oi = 0; oi < orbits.length; oi++) {
+        const orb = orbits[oi];
+        const rx = R * orb.rf, ry = rx * 0.22;
+        for (let k = 0; k < orb.n; k++) {
+          const a = t * orb.spd + k * (Math.PI * 2 / orb.n) + oi * 0.7;
+          const { x: px, y: py } = ellipsePoint(cx, cy, rx, ry, orb.tilt, a);
+          // depth cue
+          const depth = 0.5 + 0.5 * Math.sin(a - orb.tilt);
+          const named = namedSats.find(s => s.orbit === oi && s.k === k);
+          const isHi = !!named;
+          const sz = isHi ? 6 : 4;
+          drawCrosshair(px, py, sz, 0.55 + 0.4 * depth, isHi);
+          if (named) satPositions[named.id] = { x: px, y: py, side: k < orb.n/2 ? 'r' : 'l', depth };
         }
       }
 
-      raf = requestAnimationFrame(draw);
+      // callout labels for named sats
+      for (const [id, pos] of Object.entries(satPositions)) {
+        drawCallout(pos.x, pos.y, id, pos.side, 0.5 + 0.5 * pos.depth);
+      }
+
+      // trajectory arc between two tracked sats (dashed blue curve)
+      const s1 = satPositions['DARC-01'], s2 = satPositions['SAT-A11'];
+      if (s1 && s2) {
+        const mx = (s1.x + s2.x) / 2 - 30, my = (s1.y + s2.y) / 2 - 40;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(125,211,252,0.28)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath();
+        ctx.moveTo(s1.x, s1.y);
+        ctx.quadraticCurveTo(mx, my, s2.x, s2.y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      requestAnimationFrame(draw);
     }
     cancelAnimationFrame(c._raf);
     c._raf = requestAnimationFrame(draw);
