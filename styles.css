@@ -949,15 +949,29 @@ body[data-hero="counter"] .hero-v-counter { opacity: 1; }
   font-size: 28px; color: var(--accent); line-height: 1;
 }
 
-/* ============ Hero brand title ============ */
-.hero-brand-title {
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.22em;
+/* ============ Hero main title ============ */
+.hero-title-main {
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: clamp(52px, 9vw, 120px);
+  line-height: 0.95;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
+  color: var(--fg);
+  margin: 0 0 18px;
+}
+.hero-subtitle {
+  font-family: var(--sans);
+  font-weight: 300;
+  font-size: clamp(16px, 2vw, 26px);
+  line-height: 1.3;
+  color: var(--fg);
+  margin: 0 0 28px;
+  max-width: 54ch;
+}
+.hero-subtitle-gold {
   color: var(--accent);
-  margin-bottom: 18px;
-  opacity: 0.85;
+  font-weight: 400;
 }
 
 /* ============ Thesis pullquote ============ */
@@ -997,6 +1011,7 @@ body[data-hero="counter"] .hero-v-counter { opacity: 1; }
   letter-spacing: 0.08em;
   color: var(--fg-dim);
   text-transform: uppercase;
+  grid-column: 2;
 }
 
 /* ============ Leakage Loop ============ */

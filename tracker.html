@@ -1263,6 +1263,14 @@
         document.getElementById('intro-overlay')?.classList.add('hidden');
       });
 
+      // Auto-dismiss intro when embedded via ?embed=1
+      if (new URLSearchParams(location.search).get('embed') === '1') {
+        document.getElementById('intro-overlay')?.classList.add('hidden');
+        // Compact the brand box so it doesn't obscure the globe
+        const bb = document.getElementById('brand-box');
+        if (bb) bb.style.display = 'none';
+      }
+
       document.getElementById('speed-slider')?.addEventListener('input', (e) => {
         timeMultiplier = Number(e.target.value);
         safeSetText('speed-val', `${timeMultiplier}x`);

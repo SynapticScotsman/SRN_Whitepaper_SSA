@@ -135,10 +135,10 @@ window.SSA_DATA = {
   ],
 
   coordinationMatrix: [
-    { num: '01', title: 'Reform FOR Codes',          deadline: 'Current review cycle', body: 'Separate space engineering from aerospace to unblock the ARC research funding pipeline. 510901 is the only code that explicitly names SSA — it needs visibility.', tag: 'Classification' },
-    { num: '02', title: 'Develop STM Policy',         deadline: 'By 2028',             body: 'Establish an Australian Space Traffic Management framework. International STM rules are being written now — act as a rule-shaper, not a rule-taker.', tag: 'Policy' },
-    { num: '03', title: 'National Coordination Body', deadline: 'By 2028',             body: 'Establish a UK NSpOC-style central hub integrating civil, defence, and academic inputs. Plan for SmartSat CRC funding transition now.', tag: 'Foundational' },
-    { num: '04', title: 'Sovereign Catalogue',        deadline: 'Within 3 years',      body: 'Build a tiered-access national space object data framework. Australia currently has no sovereign catalogue — raw data is exported and bought back at premium.', tag: 'Data' },
+    { num: '01', title: 'National Coordination Body', deadline: 'By 2028',             body: 'Establish a UK NSpOC-style central hub integrating civil, defence, and academic inputs. Plan for SmartSat CRC funding transition now.', tag: 'Foundational' },
+    { num: '02', title: 'Sovereign Catalogue',        deadline: 'Within 3 years',      body: 'Build a tiered-access national space object data framework. Australia currently has no sovereign catalogue — raw data is exported and bought back at premium.', tag: 'Data' },
+    { num: '03', title: 'Develop STM Policy',         deadline: 'By 2028',             body: 'Establish an Australian Space Traffic Management framework. International STM rules are being written now — act as a rule-shaper, not a rule-taker.', tag: 'Policy' },
+    { num: '04', title: 'Reform FOR Codes',           deadline: 'Current review cycle', body: 'Separate space engineering from aerospace to unblock the ARC research funding pipeline. 510901 is the only code that explicitly names SSA — it needs visibility.', tag: 'Classification' },
     { num: '05', title: 'Invest in Sovereign Sensors',deadline: 'Within 5 years',      body: 'Procure and deploy neuromorphic and passive radar technologies domestically. Both are Australian-developed, proven, and arms-restriction-free.', tag: 'Capability' }
   ],
 
