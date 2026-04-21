@@ -23,8 +23,7 @@
     </a>
     <ol class="nav-chapters">
       <li><a href="#ch-problem">Problem</a></li>
-      <li><a href="#ch-shells">Orbits</a></li>
-      <li><a href="#ch-kessler">Kessler</a></li>
+      <li><a href="#ch-leakage">Leakage Loop</a></li>
       <li><a href="#ch-growth">Growth</a></li>
       <li><a href="#ch-tracker">Tracker</a></li>
       <li><a href="#ch-sites">Sites</a></li>
@@ -86,6 +85,7 @@
         <span class="sep">·</span>
         <span>April 2026</span>
       </div>
+      <div class="hero-brand-title">Connecting the Constellation</div>
       <h1 class="hero-title">
         <span class="hero-quiet">How Australia sees the sky</span>
         And why it must see it <em>better.</em>
@@ -126,10 +126,82 @@
     </div>
   </section>
 
-  <!-- ░░ CH 02 — Orbital shells scrolly ░░ -->
-  <section id="ch-shells" class="chapter chapter-dark">
+  <!-- ░░ Thesis pullquote ░░ -->
+  <div class="thesis-pullquote">
+    <blockquote>
+      <p>"This is not a story of missing capability. It is a story of capability that exists but is not connected."</p>
+      <footer>The biggest gains will come from linking existing assets, not building new ones.</footer>
+    </blockquote>
+  </div>
+
+  <!-- ░░ CH 02 — The Leakage Loop ░░ -->
+  <section id="ch-leakage" class="chapter chapter-dark">
     <header class="chapter-head">
       <span class="chapter-num">02</span>
+      <span class="chapter-kicker">The leakage loop</span>
+    </header>
+    <div class="chapter-grid">
+      <h2 class="chapter-title">Australia collects premium orbital data, ships it overseas, then <em>buys it back</em> at a premium.</h2>
+      <div>
+        <p class="chapter-lede">Australia's sensors collect some of the world's most strategically valuable space data. But without a sovereign catalogue or processing pipeline, that data is exported raw — and returned as a commercial product Australia pays for twice.</p>
+        <aside class="sidebar" style="margin-top:22px;">
+          <div class="sidebar-label">The Resource Sector Pattern</div>
+          <p>The value-add occurs overseas. Promising domestic startups are forced to establish international offices to access larger defence markets and investment ecosystems.</p>
+        </aside>
+      </div>
+    </div>
+    <div class="leakage-wrap">
+      <svg class="leakage-svg" viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg" id="leakage-svg">
+        <!-- arrows: Collect → Export → BuyBack → Collect -->
+        <!-- Collect → Export (top-left to top-right arc) -->
+        <path class="leakage-arrow" id="la-1" d="M 310,140 C 380,80 520,80 590,140" fill="none"/>
+        <!-- Export → BuyBack (top-right to bottom arc) -->
+        <path class="leakage-arrow" id="la-2" d="M 620,200 C 660,300 560,370 450,370" fill="none"/>
+        <!-- BuyBack → Collect (bottom to top-left arc) -->
+        <path class="leakage-arrow" id="la-3" d="M 340,370 C 220,370 140,300 200,200" fill="none"/>
+        <!-- arrowheads -->
+        <polygon class="leakage-head" points="590,140 574,122 606,126" />
+        <polygon class="leakage-head" points="450,370 437,354 463,351" />
+        <polygon class="leakage-head" points="200,200 183,206 190,180" />
+        <!-- node: Collect -->
+        <g class="leakage-node" id="ln-collect">
+          <polygon class="leakage-hex" points="230,100 270,80 310,100 310,140 270,160 230,140"/>
+          <text class="leakage-node-num" x="270" y="114">01</text>
+          <text class="leakage-node-label" x="270" y="132">COLLECT</text>
+          <text class="leakage-node-sub" x="270" y="186">Australia collects premium</text>
+          <text class="leakage-node-sub" x="270" y="202">orbital data via foreign-</text>
+          <text class="leakage-node-sub" x="270" y="218">owned ground sensors.</text>
+        </g>
+        <!-- node: Export -->
+        <g class="leakage-node" id="ln-export">
+          <polygon class="leakage-hex" points="590,100 630,80 670,100 670,140 630,160 590,140"/>
+          <text class="leakage-node-num" x="630" y="114">02</text>
+          <text class="leakage-node-label" x="630" y="132">EXPORT</text>
+          <text class="leakage-node-sub" x="630" y="186">Raw data exported overseas</text>
+          <text class="leakage-node-sub" x="630" y="202">for processing — Australia</text>
+          <text class="leakage-node-sub" x="630" y="218">lacks a sovereign catalogue.</text>
+        </g>
+        <!-- node: Buy Back -->
+        <g class="leakage-node" id="ln-buyback">
+          <polygon class="leakage-hex" points="410,330 450,310 490,330 490,370 450,390 410,370"/>
+          <text class="leakage-node-num" x="450" y="344">03</text>
+          <text class="leakage-node-label" x="450" y="362">BUY BACK</text>
+          <text class="leakage-node-sub" x="450" y="408">Australia purchases the</text>
+          <text class="leakage-node-sub" x="450" y="424">processed data back</text>
+          <text class="leakage-node-sub" x="450" y="440">at a premium.</text>
+        </g>
+        <!-- centre label -->
+        <text class="leakage-centre" x="450" y="222">The</text>
+        <text class="leakage-centre" x="450" y="248">Leakage</text>
+        <text class="leakage-centre" x="450" y="274">Loop</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ░░ CH 03 — Orbital shells scrolly ░░ -->
+  <section id="ch-shells" class="chapter">
+    <header class="chapter-head">
+      <span class="chapter-num">03</span>
       <span class="chapter-kicker">Three orbital shells</span>
     </header>
     <div class="chapter-grid">
@@ -192,7 +264,7 @@
   <!-- ░░ CH 03 — Kessler ░░ -->
   <section id="ch-kessler" class="chapter">
     <header class="chapter-head">
-      <span class="chapter-num">03</span>
+      <span class="chapter-num">04</span>
       <span class="chapter-kicker">Kessler syndrome</span>
     </header>
     <div class="chapter-grid">
@@ -223,7 +295,7 @@
   <!-- ░░ CH 04 — Growth ░░ -->
   <section id="ch-growth" class="chapter chapter-dark">
     <header class="chapter-head">
-      <span class="chapter-num">04</span>
+      <span class="chapter-num">05</span>
       <span class="chapter-kicker">The population curve</span>
     </header>
     <div class="chapter-grid">
@@ -252,12 +324,32 @@
         <span><span class="sw sw-dash"></span>Announced plans</span>
       </div>
     </figure>
+
+    <!-- ARC funding dual-axis chart -->
+    <figure class="chart-card arc-chart-card" id="arc-chart" style="margin-top:40px;">
+      <figcaption class="chart-title">ARC SSA research funding (AUD) vs Starlink cumulative launches · 2006–2026</figcaption>
+      <svg viewBox="0 0 1000 380" class="chart-svg" id="arc-svg">
+        <g id="arc-grid"></g>
+        <g id="arc-bars"></g>
+        <g id="arc-line-group"></g>
+        <g id="arc-axes"></g>
+        <g id="arc-annos"></g>
+      </svg>
+      <div class="chart-legend">
+        <span><span class="sw" style="background:var(--accent)"></span>ARC SSA funding (AUD)</span>
+        <span><span class="sw" style="background:var(--accent-2,#ffb84d)"></span>Starlink satellites (cumulative)</span>
+      </div>
+      <div class="arc-barrier">
+        <div><span class="arc-barrier-label">The Structural Barrier</span><p>The ANZSRC FOR code system classifies space engineering under aerospace, rendering SSA research invisible to funding mechanisms. Multiple zero-award years while the orbital threat escalated.</p></div>
+        <div><span class="arc-barrier-label">The Result</span><p>The dedicated code (510901 Astrodynamics and SSA) has attracted negligible funding even as Starlink passed 10,000 active satellites.</p></div>
+      </div>
+    </figure>
   </section>
 
-  <!-- ░░ CH 05 — Live tracker ░░ -->
+  <!-- ░░ CH 06 — Live tracker ░░ -->
   <section id="ch-tracker" class="chapter chapter-dark">
     <header class="chapter-head">
-      <span class="chapter-num">05</span>
+      <span class="chapter-num">06</span>
       <span class="chapter-kicker">What Southern Sentinel sees</span>
     </header>
     <div class="chapter-grid">
@@ -294,10 +386,10 @@
     </div>
   </section>
 
-  <!-- ░░ CH 06 — Ground sites map ░░ -->
+  <!-- ░░ CH 07 — Ground sites map ░░ -->
   <section id="ch-sites" class="chapter">
     <header class="chapter-head">
-      <span class="chapter-num">06</span>
+      <span class="chapter-num">07</span>
       <span class="chapter-kicker">Australia's comparative advantage</span>
     </header>
     <div class="chapter-grid">
@@ -372,7 +464,7 @@
   <!-- ░░ CH 06 — Capability ░░ -->
   <section id="ch-capability" class="chapter chapter-dark">
     <header class="chapter-head">
-      <span class="chapter-num">07</span>
+      <span class="chapter-num">08</span>
       <span class="chapter-kicker">Capability that exists but is not connected</span>
     </header>
     <div class="chapter-grid">
@@ -380,7 +472,42 @@
       <p class="chapter-lede"><span class="term" data-term="event-based camera">Neuromorphic event-based cameras</span> and <span class="term" data-term="passive radar">passive radar</span> are both Australian-developed, both arms-restriction-free, and both deployed today. What's missing is the procurement pathway.</p>
     </div>
 
-    <div class="case-grid">
+    <!-- Sovereign Stack -->
+    <div class="sovereign-stack" id="sovereign-stack">
+      <div class="stack-header">
+        <span class="stack-label">The Sovereign Stack</span>
+        <p class="stack-sub">Australia's capability operates in isolated layers with no shared pipeline to connect them.</p>
+      </div>
+      <div class="stack-layers">
+        <div class="stack-layer" data-layer="space">
+          <div class="stack-layer-inner">
+            <div class="stack-layer-tag">Space-Based Layer</div>
+            <div class="stack-layer-title">HEO Robotics (Argus) · Inovor Technologies (Hyperion)</div>
+            <div class="stack-layer-body">Satellite-to-satellite inspection and sovereign space-based platforms — providing non-Earth imaging with resolution no ground telescope can match.</div>
+          </div>
+        </div>
+        <div class="stack-layer" data-layer="tech">
+          <div class="stack-layer-inner">
+            <div class="stack-layer-tag">Unique Tech Layer</div>
+            <div class="stack-layer-title">WSU Neuromorphic Cameras (Optera) · Curtin / Silentium Passive Radar</div>
+            <div class="stack-layer-body">Two world-first sensor technologies — both Australian-developed, both arms-restriction-free, both proven in operational environments today.</div>
+          </div>
+        </div>
+        <div class="stack-layer" data-layer="geo">
+          <div class="stack-layer-inner">
+            <div class="stack-layer-tag">Geographic Foundation</div>
+            <div class="stack-layer-title">Southern Hemisphere Coverage · Radio-Quiet Interior · DARC at Exmouth</div>
+            <div class="stack-layer-body">A geographic advantage no northern-hemisphere network can replicate — the Indian and Southern Oceans are visible only from this continent.</div>
+          </div>
+        </div>
+      </div>
+      <div class="stack-insight">
+        <span class="stack-insight-label">Key Insight</span>
+        <p>The capability operates in pockets. Australia maintains no sovereign space object catalogue and no shared research pipeline to link these assets.</p>
+      </div>
+    </div>
+
+    <div class="case-grid" style="margin-top:80px;">
       <!-- Case 01 -->
       <article class="case-card">
         <div class="case-vis">
@@ -473,36 +600,39 @@
     </div>
   </section>
 
-  <!-- ░░ CH 07 — World benchmarks ░░ -->
+  <!-- ░░ CH 09 — World benchmarks ░░ -->
   <section id="ch-world" class="chapter">
     <header class="chapter-head">
-      <span class="chapter-num">08</span>
-      <span class="chapter-kicker">How the rest of the world sees the sky</span>
+      <span class="chapter-num">09</span>
+      <span class="chapter-kicker">The international playbook</span>
     </header>
     <div class="chapter-grid">
-      <h2 class="chapter-title">Every successful SSA programme looks like coordination, not scale.</h2>
+      <h2 class="chapter-title">The global standard proves that unified coordination <em>heavily outpaces</em> raw scale.</h2>
       <p class="chapter-lede">Australia does not need to match US spending. It needs the integration model proven by the UK, Germany, and the EU <span class="term" data-term="ssa">SST</span> consortium.</p>
     </div>
-    <div class="bench-table" id="bench-table"></div>
+    <!-- Diagnostic matrix -->
+    <div class="diag-table" id="diag-table"></div>
+    <div class="bench-table" id="bench-table" style="margin-top:60px;"></div>
+    <p class="bench-takeaway">"Australia lacks the baseline integration that its allies share. We do not need to match the US Space Force's $42B budget; we simply need the UK NSpOC coordination model."</p>
   </section>
 
-  <!-- ░░ CH 08 — Recommendations ░░ -->
+  <!-- ░░ CH 10 — Recommendations ░░ -->
   <section id="ch-rec" class="chapter chapter-dark">
     <header class="chapter-head">
-      <span class="chapter-num">09</span>
-      <span class="chapter-kicker">Five recommendations</span>
+      <span class="chapter-num">10</span>
+      <span class="chapter-kicker">Five strategic recommendations</span>
     </header>
     <div class="chapter-grid">
-      <h2 class="chapter-title">The window is defined by the megaconstellation surge, the SmartSat CRC funding transition, and international <span class="term" data-term="stm">STM</span> frameworks taking shape now.</h2>
-      <p class="chapter-lede">Coordination over scale. Five actions, sequenced by urgency.</p>
+      <h2 class="chapter-title">The Coordination Matrix: five actions to establish a sovereign SSA network.</h2>
+      <p class="chapter-lede">Sequenced by what can be done now versus what requires new funding. Reform FOR codes first — that costs nothing and unblocks everything.</p>
     </div>
-    <ol class="rec-list" id="rec-list"></ol>
+    <div class="coord-matrix" id="coord-matrix"></div>
   </section>
 
-  <!-- ░░ CH 09 — Timeline ░░ -->
+  <!-- ░░ CH 11 — Timeline ░░ -->
   <section id="ch-timeline" class="chapter">
     <header class="chapter-head">
-      <span class="chapter-num">10</span>
+      <span class="chapter-num">11</span>
       <span class="chapter-kicker">Milestones · 2019–2026</span>
     </header>
     <div class="chapter-grid">
@@ -512,10 +642,10 @@
     <div class="timeline" id="timeline"></div>
   </section>
 
-  <!-- ░░ CH 10 — Glossary ░░ -->
+  <!-- ░░ CH 12 — Glossary ░░ -->
   <section id="ch-glossary" class="chapter chapter-dark">
     <header class="chapter-head">
-      <span class="chapter-num">11</span>
+      <span class="chapter-num">12</span>
       <span class="chapter-kicker">A vocabulary</span>
     </header>
     <div class="chapter-grid">
@@ -523,6 +653,22 @@
       <p class="chapter-lede">SSA has its own language. Every term used in this paper appears below.</p>
     </div>
     <div class="glossary-grid" id="glossary"></div>
+  </section>
+
+  <!-- ░░ Outcomes ░░ -->
+  <section id="ch-outcomes" class="chapter">
+    <header class="chapter-head">
+      <span class="chapter-num">13</span>
+      <span class="chapter-kicker">Why it matters</span>
+    </header>
+    <div class="chapter-grid">
+      <h2 class="chapter-title">We are perfectly positioned. Now we just need to <em>connect the constellation.</em></h2>
+      <p class="chapter-lede">The window is defined by the megaconstellation surge, the SmartSat CRC funding transition, and international STM frameworks being written now. Australia does not need to match larger nations' spending. It needs to connect what it already has.</p>
+    </div>
+    <div class="outcomes-grid" id="outcomes-grid"></div>
+    <div class="outcomes-closing">
+      <strong>We are perfectly positioned.</strong> Now we just need to connect the constellation.
+    </div>
   </section>
 
   <!-- ░░ CTA ░░ -->

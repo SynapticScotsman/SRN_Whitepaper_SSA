@@ -94,5 +94,58 @@ window.SSA_DATA = {
     { term: 'Starlink', short: 'SpaceX megaconstellation', data: 'starlink', def: '10,020 active satellites as of 17 March 2026 — roughly two-thirds of all active spacecraft in orbit.' },
     { term: 'JCO', short: 'Joint Commercial Office', def: 'A 20-nation "follow-the-sun" SDA fusion model with three cells: Pacific (NZ lead), Meridian (UK lead), and Americas (US lead).' },
     { term: 'FOR codes', short: 'Field of Research', def: 'ANZSRC taxonomy used to classify research. Places all space engineering under a single aerospace code — 510901 Astrodynamics and SSA is the only code to explicitly name the field.' }
+  ],
+
+  arcFunding: [
+    { year: 2006, amount: 90992,  n: 1 },
+    { year: 2007, amount: 0,      n: 0 },
+    { year: 2008, amount: 0,      n: 0 },
+    { year: 2009, amount: 0,      n: 0 },
+    { year: 2010, amount: 0,      n: 0 },
+    { year: 2011, amount: 0,      n: 0 },
+    { year: 2012, amount: 0,      n: 0 },
+    { year: 2013, amount: 840542, n: 2 },
+    { year: 2014, amount: 0,      n: 0 },
+    { year: 2015, amount: 286947, n: 1 },
+    { year: 2016, amount: 780000, n: 1 },
+    { year: 2017, amount: 410675, n: 1 },
+    { year: 2018, amount: 0,      n: 0 },
+    { year: 2019, amount: 0,      n: 0 },
+    { year: 2020, amount: 553877, n: 1 },
+    { year: 2021, amount: 0,      n: 0 },
+    { year: 2022, amount: 788194, n: 2 },
+    { year: 2023, amount: 280000, n: 1 },
+    { year: 2024, amount: 0,      n: 0 },
+    { year: 2025, amount: 0,      n: 0 },
+    { year: 2026, amount: 0,      n: 0 }
+  ],
+
+  starlinkCumulative: [
+    [2006,0],[2007,0],[2008,0],[2009,0],[2010,0],[2011,0],[2012,0],[2013,0],
+    [2014,0],[2015,0],[2016,0],[2017,0],[2018,0],[2019,120],[2020,900],
+    [2021,1800],[2022,3500],[2023,5500],[2024,7000],[2025,9000],[2026,10020]
+  ],
+
+  diagnosticMatrix: [
+    { nation: 'UK (NSpOC)',       civilMil: true,  catalogue: true,  sensor: false, lesson: 'Directly applicable blueprint.' },
+    { nation: 'Germany (GSSAC)', civilMil: true,  catalogue: true,  sensor: false, lesson: 'Co-location works without large budgets.' },
+    { nation: 'EU (SST)',         civilMil: true,  catalogue: true,  sensor: false, lesson: 'Networked national assets outperform silos.' },
+    { nation: 'Canada (Sapphire)',civilMil: false, catalogue: false, sensor: true,  lesson: 'Feasible Five Eyes space-based contribution.' },
+    { nation: 'Australia (Current)', civilMil: false, catalogue: false, sensor: false, lesson: 'Fragmented structure blocks capability.', highlight: true }
+  ],
+
+  coordinationMatrix: [
+    { num: '01', title: 'Reform FOR Codes',          deadline: 'Current review cycle', body: 'Separate space engineering from aerospace to unblock the ARC research funding pipeline. 510901 is the only code that explicitly names SSA — it needs visibility.', tag: 'Classification' },
+    { num: '02', title: 'Develop STM Policy',         deadline: 'By 2028',             body: 'Establish an Australian Space Traffic Management framework. International STM rules are being written now — act as a rule-shaper, not a rule-taker.', tag: 'Policy' },
+    { num: '03', title: 'National Coordination Body', deadline: 'By 2028',             body: 'Establish a UK NSpOC-style central hub integrating civil, defence, and academic inputs. Plan for SmartSat CRC funding transition now.', tag: 'Foundational' },
+    { num: '04', title: 'Sovereign Catalogue',        deadline: 'Within 3 years',      body: 'Build a tiered-access national space object data framework. Australia currently has no sovereign catalogue — raw data is exported and bought back at premium.', tag: 'Data' },
+    { num: '05', title: 'Invest in Sovereign Sensors',deadline: 'Within 5 years',      body: 'Procure and deploy neuromorphic and passive radar technologies domestically. Both are Australian-developed, proven, and arms-restriction-free.', tag: 'Capability' }
+  ],
+
+  outcomes: [
+    { title: 'Space Safety',           body: 'Better tracking protects the orbital environment for all users — commercial, civil, and military.' },
+    { title: 'Commercial Growth',      body: 'Sovereign data access opens global procurement pathways for Australian firms currently forced to establish overseas offices.' },
+    { title: 'National Security',      body: 'Civil SSA directly strengthens Defence Space Domain Awareness with no duplicated capability.' },
+    { title: 'International Influence',body: 'Sovereign sensors make Australia a vital, non-reliant partner across Five Eyes and allied SSA networks.' }
   ]
 };

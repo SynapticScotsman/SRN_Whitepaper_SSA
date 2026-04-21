@@ -657,12 +657,124 @@
   const frame = document.querySelector('.tracker-embed-frame');
   const shield = document.querySelector('.tracker-embed-click-shield');
   if (!frame || !shield) return;
-  shield.addEventListener('click', () => {
-    frame.classList.add('is-active');
-  });
-  // deactivate when user scrolls away so page scroll works again
+  shield.addEventListener('click', () => { frame.classList.add('is-active'); });
   const io = new IntersectionObserver((ents) => {
     ents.forEach(e => { if (!e.isIntersecting) frame.classList.remove('is-active'); });
   }, { threshold: 0 });
   io.observe(frame);
+})();
+
+/* ============ ARC funding dual-axis chart ============ */
+(function arcChart(){
+  const data   = window.SSA_DATA.arcFunding;
+  const starlink = window.SSA_DATA.starlinkCumulative;
+  if (!data || !document.getElementById('arc-svg')) return;
+
+  const W=1000,H=340,L=70,R=70,T=20,B=50;
+  const years = data.map(d => d.year);
+  const xMin = years[0], xMax = years[years.length-1];
+  const yMaxFund = 900000, yMaxStar = 11000;
+  const sx = x => L + (x - xMin)/(xMax - xMin)*(W-L-R);
+  const syF = y => H - B - (y/yMaxFund)*(H-T-B);
+  const syStar = y => H - B - (y/yMaxStar)*(H-T-B);
+
+  const grid = document.getElementById('arc-grid');
+  const bars = document.getElementById('arc-bars');
+  const lineG = document.getElementById('arc-line-group');
+  const axes = document.getElementById('arc-axes');
+  const annos = document.getElementById('arc-annos');
+
+  // grid lines
+  [0,200000,400000,600000,800000].forEach(v => {
+    grid.innerHTML += `<line x1="${L}" y1="${syF(v)}" x2="${W-R}" y2="${syF(v)}" stroke="var(--rule)" stroke-width="1"/>`;
+    axes.innerHTML += `<text x="${L-8}" y="${syF(v)+4}" text-anchor="end" font-family="var(--mono)" font-size="9" fill="var(--fg-faint)">$${v===0?'0':(v/1000).toFixed(0)+'k'}</text>`;
+  });
+  [0,2500,5000,7500,10000].forEach(v => {
+    axes.innerHTML += `<text x="${W-R+8}" y="${syStar(v)+4}" text-anchor="start" font-family="var(--mono)" font-size="9" fill="rgba(255,184,77,0.8)">${v===0?'0':(v/1000).toFixed(1)+'k'}</text>`;
+  });
+
+  // x axis labels — every 5 years
+  for (let y=xMin; y<=xMax; y+=5) {
+    axes.innerHTML += `<text x="${sx(y)}" y="${H-B+18}" text-anchor="middle" font-family="var(--mono)" font-size="9" fill="var(--fg-faint)">${y}</text>`;
+  }
+  axes.innerHTML += `<text x="${L-8}" y="${T}" text-anchor="end" font-family="var(--mono)" font-size="8" fill="var(--fg-faint)" writing-mode="tb">AUD</text>`;
+  axes.innerHTML += `<text x="${W-R+24}" y="${T+40}" text-anchor="middle" font-family="var(--mono)" font-size="8" fill="rgba(255,184,77,0.8)">Starlink</text>`;
+
+  // bars
+  const barW = (W-L-R)/(xMax-xMin+1)*0.6;
+  data.forEach(d => {
+    if (!d.amount) return;
+    const bx = sx(d.year) - barW/2;
+    const by = syF(d.amount);
+    const bh = H-B-by;
+    bars.innerHTML += `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}" fill="var(--accent)" opacity="0.75"/>`;
+    bars.innerHTML += `<text x="${sx(d.year)}" y="${by-6}" text-anchor="middle" font-family="var(--mono)" font-size="8" fill="var(--fg-dim)">$${(d.amount/1000).toFixed(0)}k</text>`;
+    if (d.n > 0) bars.innerHTML += `<text x="${sx(d.year)}" y="${by-16}" text-anchor="middle" font-family="var(--mono)" font-size="7.5" fill="var(--fg-faint)">(n=${d.n})</text>`;
+  });
+
+  // Starlink line
+  const slPts = starlink.filter(([y]) => y >= xMin && y <= xMax);
+  const slPath = slPts.map(([x,y],i) => `${i===0?'M':'L'}${sx(x).toFixed(1)} ${syStar(y).toFixed(1)}`).join(' ');
+  lineG.innerHTML = `<path d="${slPath}" fill="none" stroke="rgba(255,184,77,0.85)" stroke-width="2"/>`;
+  slPts.forEach(([x,y]) => {
+    lineG.innerHTML += `<circle cx="${sx(x)}" cy="${syStar(y)}" r="3" fill="rgba(255,184,77,0.85)"/>`;
+  });
+
+  // annotation
+  annos.innerHTML = `<g transform="translate(${sx(2019)},${syF(0)+14})">
+    <line x1="0" y1="-8" x2="0" y2="-40" stroke="var(--rule-strong)" stroke-width="1"/>
+    <text x="4" y="-28" font-family="var(--mono)" font-size="8.5" fill="var(--fg-dim)">Starlink begins</text>
+  </g>`;
+})();
+
+/* ============ Diagnostic matrix ============ */
+(function diagMatrix(){
+  const el = document.getElementById('diag-table');
+  if (!el) return;
+  el.innerHTML = `<div class="diag-row diag-head">
+    <span>Country / Model</span>
+    <span>Civil–Mil Integration</span>
+    <span>Shared Catalogue</span>
+    <span>Sovereign Sensor</span>
+    <span>Key Lesson</span>
+  </div>`;
+  window.SSA_DATA.diagnosticMatrix.forEach(r => {
+    const chk = v => v
+      ? `<span class="diag-check yes" title="Yes">✓</span>`
+      : `<span class="diag-check no"  title="No">✗</span>`;
+    el.innerHTML += `<div class="diag-row${r.highlight ? ' diag-highlight' : ''}">
+      <span class="diag-nation">${r.nation}</span>
+      ${chk(r.civilMil)}
+      ${chk(r.catalogue)}
+      ${chk(r.sensor)}
+      <span class="diag-lesson">${r.lesson}</span>
+    </div>`;
+  });
+})();
+
+/* ============ Coordination Matrix ============ */
+(function coordMatrix(){
+  const el = document.getElementById('coord-matrix');
+  if (!el) return;
+  window.SSA_DATA.coordinationMatrix.forEach(s => {
+    el.innerHTML += `<div class="coord-step">
+      <div class="coord-step-num">${s.num}</div>
+      <h3 class="coord-step-title">${s.title}</h3>
+      <span class="coord-step-deadline">${s.deadline}</span>
+      <p class="coord-step-body">${s.body}</p>
+      <span class="coord-step-tag">${s.tag}</span>
+    </div>`;
+  });
+})();
+
+/* ============ Outcomes grid ============ */
+(function outcomesGrid(){
+  const el = document.getElementById('outcomes-grid');
+  if (!el) return;
+  window.SSA_DATA.outcomes.forEach(o => {
+    el.innerHTML += `<div class="outcome-card">
+      <h3 class="outcome-title">${o.title}</h3>
+      <p class="outcome-body">${o.body}</p>
+    </div>`;
+  });
 })();
